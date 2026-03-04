@@ -12,7 +12,7 @@ if t.TYPE_CHECKING:
 
 
 def get_model_config(
-    model_id: str, benchmark_config: "BenchmarkConfig"
+    model_id: str, benchmark_config: "BenchmarkConfig", prioritize_mask: bool
 ) -> "ModelConfig":
     """Fetches configuration for a model.
 
@@ -21,6 +21,8 @@ def get_model_config(
             The model ID.
         benchmark_config:
             The configuration of the benchmark.
+        prioritize_mask:
+            Whether to prioritize the mask model if both available.
 
     Returns:
         The model configuration.
@@ -42,7 +44,9 @@ def get_model_config(
     needs_env_vars: list[str] = list()
     for benchmark_module in all_benchmark_modules:
         exists_or_err = benchmark_module.model_exists(
-            model_id=model_id, benchmark_config=benchmark_config
+            model_id=model_id,
+            benchmark_config=benchmark_config,
+            prioritize_mask=prioritize_mask
         )
         if isinstance(exists_or_err, NeedsExtraInstalled):
             needs_extras.append(exists_or_err.extra)

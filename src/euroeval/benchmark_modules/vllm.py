@@ -875,7 +875,7 @@ class VLLMModel(HuggingFaceEncoderModel):
 
     @classmethod
     def model_exists(
-        cls, model_id: str, benchmark_config: "BenchmarkConfig"
+        cls, model_id: str, benchmark_config: "BenchmarkConfig", prioritize_mask: bool
     ) -> bool | NeedsExtraInstalled | NeedsEnvironmentVariable:
         """Check if a model exists.
 
@@ -884,6 +884,8 @@ class VLLMModel(HuggingFaceEncoderModel):
                 The model ID.
             benchmark_config:
                 The benchmark configuration.
+            prioritize_mask:
+                Whether to prioritize the mask model if both available.
 
         Returns:
             Whether the model exists, or an error describing why we cannot check
@@ -908,6 +910,7 @@ class VLLMModel(HuggingFaceEncoderModel):
             trust_remote_code=benchmark_config.trust_remote_code,
             requires_safetensors=benchmark_config.requires_safetensors,
             run_with_cli=benchmark_config.run_with_cli,
+            prioritize_mask=prioritize_mask,
         )
         return (
             model_info is not None

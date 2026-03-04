@@ -53,6 +53,18 @@ from .languages import get_all_languages
     help="The batch size to use for finetuning.",
 )
 @click.option(
+    "--learning-rate",
+    default="2e-5",
+    type=float,
+    help="The max learning rate to use for finetuning.",
+)
+@click.option(
+    "--warmup-ratio",
+    default="0.01",
+    type=float,
+    help="The warmup ratio to use for finetuning.",
+)
+@click.option(
     "--progress-bar/--no-progress-bar",
     default=True,
     show_default=True,
@@ -257,6 +269,13 @@ from .languages import get_all_languages
     help="This option is deprecated - please use --finetuning-batch-size instead.",
     deprecated=True,
 )
+@click.option(
+    "--prioritize-mask/--no-prioritize-mask",
+    default=False,
+    show_default=True,
+    help="Whether to run the benchmark with the masked version of the model, \
+          when the model can be run in both fashions.",
+)
 def benchmark(
     model: tuple[str],
     dataset: tuple[str | DatasetConfig],
@@ -264,6 +283,8 @@ def benchmark(
     raise_errors: bool,
     task: tuple[str],
     finetuning_batch_size: str,
+    learning_rate: float,
+    warmup_ratio: float,
     progress_bar: bool,
     save_results: bool,
     cache_dir: str,
@@ -290,6 +311,7 @@ def benchmark(
     max_context_length: int | None,
     vocabulary_size: int | None,
     batch_size: str | None,
+    prioritize_mask: bool,
 ) -> None:
     """Benchmark pretrained language models on language tasks."""
     Benchmarker(
@@ -297,6 +319,8 @@ def benchmark(
         task=None if len(task) == 0 else list(task),
         dataset=None if len(dataset) == 0 else list(dataset),
         finetuning_batch_size=int(finetuning_batch_size),
+        learning_rate=learning_rate,
+        warmup_ratio=warmup_ratio,
         progress_bar=progress_bar,
         save_results=save_results,
         raise_errors=raise_errors,
@@ -327,7 +351,7 @@ def benchmark(
         batch_size=int(batch_size) if batch_size is not None else None,
         max_context_length=max_context_length,
         vocabulary_size=vocabulary_size,
-    ).benchmark(model=list(model))
+    ).benchmark(model=list(model), prioritize_mask=prioritize_mask)
 
 
 if __name__ == "__main__":

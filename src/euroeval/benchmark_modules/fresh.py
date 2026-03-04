@@ -163,7 +163,7 @@ class FreshEncoderModel(HuggingFaceEncoderModel):
 
     @classmethod
     def model_exists(
-        cls, model_id: str, benchmark_config: "BenchmarkConfig"
+        cls, model_id: str, benchmark_config: "BenchmarkConfig", prioritize_mask: bool
     ) -> bool | NeedsExtraInstalled | NeedsEnvironmentVariable:
         """Check if a model exists.
 
@@ -172,6 +172,10 @@ class FreshEncoderModel(HuggingFaceEncoderModel):
                 The model ID.
             benchmark_config:
                 The benchmark configuration.
+            prioritize_mask:
+                Whether to prioritize the mask model if both available.
+                (This is not relevant for this model, but it is included in the signature to
+                be consistent with the other models.)
 
         Returns:
             Whether the model exists, or an error describing why we cannot check

@@ -473,7 +473,7 @@ class HuggingFaceEncoderModel(BenchmarkModule):
 
     @classmethod
     def model_exists(
-        cls, model_id: str, benchmark_config: "BenchmarkConfig"
+        cls, model_id: str, benchmark_config: "BenchmarkConfig", prioritize_mask: bool
     ) -> bool | NeedsExtraInstalled | NeedsEnvironmentVariable:
         """Check if a model exists.
 
@@ -482,6 +482,8 @@ class HuggingFaceEncoderModel(BenchmarkModule):
                 The model ID.
             benchmark_config:
                 The benchmark configuration.
+            prioritize_mask:
+                Whether to prioritize the mask model if both available.
 
         Returns:
             Whether the model exists, or an error describing why we cannot check
@@ -496,6 +498,7 @@ class HuggingFaceEncoderModel(BenchmarkModule):
             trust_remote_code=benchmark_config.trust_remote_code,
             requires_safetensors=benchmark_config.requires_safetensors,
             run_with_cli=benchmark_config.run_with_cli,
+            prioritize_mask=prioritize_mask,
         )
         return (
             model_info is not None
@@ -530,6 +533,7 @@ class HuggingFaceEncoderModel(BenchmarkModule):
             trust_remote_code=benchmark_config.trust_remote_code,
             requires_safetensors=benchmark_config.requires_safetensors,
             run_with_cli=benchmark_config.run_with_cli,
+            prioritize_mask=True,
         )
         if model_info is None:
             raise InvalidModel(f"The model {model_id!r} could not be found.")
@@ -725,6 +729,7 @@ def get_model_repo_info(
     trust_remote_code: bool,
     requires_safetensors: bool,
     run_with_cli: bool,
+    prioritize_mask: bool = False,
 ) -> "HFModelInfo | None":
     """Get the information about the model from the HF Hub or a local directory.
 
@@ -743,6 +748,8 @@ def get_model_repo_info(
             Whether the model requires safetensors.
         run_with_cli:
             Whether the script is being run with the CLI.
+        prioritize_mask:
+            Whether to prioritize the mask model if both available.
 
     Returns:
         The information about the model, or None if the model could not be found.
@@ -890,6 +897,10 @@ def get_model_repo_info(
             pipeline_tag = "text-generation"
         else:
             pipeline_tag = "fill-mask"
+
+        if prioritize_mask:
+            if any("ForMaskedLM" in class_name for class_name in class_names):
+                pipeline_tag = "fill-mask"
 
     if requires_safetensors:
         repo_files = hf_api.list_repo_files(repo_id=model_id, revision=revision)

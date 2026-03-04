@@ -62,6 +62,8 @@ class Benchmarker:
         language: str | c.Sequence[str] = "all",
         device: Device | None = None,
         finetuning_batch_size: int = 32,
+        learning_rate: float = 2e-5,
+        warmup_ratio: float = 0.01,
         raise_errors: bool = False,
         cache_dir: str = ".euroeval_cache",
         api_key: str | None = None,
@@ -113,6 +115,10 @@ class Benchmarker:
                 The device to use for benchmarking. Defaults to None.
             finetuning_batch_size:
                 The batch size to use when finetuning. Defaults to 32.
+            learning_rate:
+                The learning rate to use when finetuning. Defaults to 2e-5.
+            warmup_ratio:
+                The warmup ratio to use when finetuning. Defaults to 0.01.
             raise_errors:
                 Whether to raise errors instead of skipping the model evaluation.
                 Defaults to False.
@@ -259,6 +265,8 @@ class Benchmarker:
             language=language,
             device=device,
             finetuning_batch_size=finetuning_batch_size,
+            learning_rate=learning_rate,
+            warmup_ratio=warmup_ratio,
             raise_errors=raise_errors,
             cache_dir=cache_dir,
             api_key=api_key,
@@ -384,6 +392,8 @@ class Benchmarker:
         language: str | c.Sequence[str] | None = None,
         device: Device | None = None,
         finetuning_batch_size: int | None = None,
+        learning_rate: float | None = None,
+        warmup_ratio: float | None = None,
         raise_errors: bool | None = None,
         cache_dir: str | None = None,
         api_key: str | None = None,
@@ -406,6 +416,7 @@ class Benchmarker:
         force: bool | None = None,
         verbose: bool | None = None,
         debug: bool | None = None,
+        prioritize_mask: bool = False,
         model_language: str | c.Sequence[str] | None = None,
         dataset_language: str | c.Sequence[str] | None = None,
         batch_size: int | None = None,
@@ -445,6 +456,12 @@ class Benchmarker:
                 initialising the benchmarker.
             finetuning_batch_size:
                 The batch size to use for finetuning. Defaults to the value specified
+                when initialising the benchmarker.
+            learning_rate:
+                The learning rate to use for finetuning. Defaults to the value specified
+                when initialising the benchmarker.
+            warmup_ratio:
+                The warmup ratio to use for finetuning. Defaults to the value specified
                 when initialising the benchmarker.
             raise_errors:
                 Whether to raise errors instead of skipping the model evaluation.
@@ -513,6 +530,9 @@ class Benchmarker:
             debug:
                 Whether to output debug information. Defaults to the value specified
                 when initialising the benchmarker.
+            prioritize_mask:
+                Whether to use the masked version of the model if both options are
+                available. Defaults to False.
             model_language:
                 Deprecated argument. Please use `language` instead.
             dataset_language:
@@ -606,6 +626,16 @@ class Benchmarker:
                 finetuning_batch_size
                 if finetuning_batch_size is not None
                 else self.benchmark_config_default_params.finetuning_batch_size
+            ),
+            learning_rate=(
+                learning_rate
+                if learning_rate is not None
+                else self.benchmark_config_default_params.learning_rate
+            ),
+            warmup_ratio=(
+                warmup_ratio
+                if warmup_ratio is not None
+                else self.benchmark_config_default_params.warmup_ratio
             ),
             raise_errors=(
                 raise_errors
@@ -735,7 +765,9 @@ class Benchmarker:
         ):
             try:
                 model_config = get_model_config(
-                    model_id=model_id, benchmark_config=benchmark_config
+                    model_id=model_id,
+                    benchmark_config=benchmark_config,
+                    prioritize_mask=prioritize_mask,
                 )
                 model_configs.append(model_config)
             except InvalidModel as e:

@@ -330,7 +330,7 @@ class BenchmarkModule(ABC):
     @classmethod
     @abstractmethod
     def model_exists(
-        cls, model_id: str, benchmark_config: "BenchmarkConfig"
+        cls, model_id: str, benchmark_config: "BenchmarkConfig", prioritize_mask: bool
     ) -> bool | NeedsExtraInstalled | NeedsEnvironmentVariable:
         """Check if a model exists.
 
@@ -339,6 +339,8 @@ class BenchmarkModule(ABC):
                 The model ID.
             benchmark_config:
                 The benchmark configuration.
+            prioritize_mask:
+                Whether to prioritize the mask model if both available.
 
         Returns:
             Whether the model exists, or an error describing why we cannot check

@@ -762,6 +762,10 @@ class BenchmarkConfig:
             The datasets to benchmark on.
         finetuning_batch_size:
             The batch size to use for finetuning.
+        learning_rate:
+            The max learning rate to use for finetuning.
+        warmup_ratio:
+            The warmup ratio to use for finetuning.
         raise_errors:
             Whether to raise errors instead of skipping them.
         cache_dir:
@@ -827,6 +831,8 @@ class BenchmarkConfig:
     datasets: c.Sequence[DatasetConfig]
     languages: c.Sequence[Language]
     finetuning_batch_size: int
+    learning_rate: float
+    warmup_ratio: float
     raise_errors: bool
     cache_dir: str
     api_key: str | None
@@ -881,6 +887,8 @@ class BenchmarkConfigParams(pydantic.BaseModel):
     language: str | c.Sequence[str]
     device: Device | None
     finetuning_batch_size: int
+    learning_rate: float
+    warmup_ratio: float
     raise_errors: bool
     cache_dir: str
     api_key: str | None

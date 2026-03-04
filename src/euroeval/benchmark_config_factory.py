@@ -58,6 +58,8 @@ def build_benchmark_config(
         datasets=dataset_configs,
         languages=languages,
         finetuning_batch_size=benchmark_config_params.finetuning_batch_size,
+        learning_rate=benchmark_config_params.learning_rate,
+        warmup_ratio=benchmark_config_params.warmup_ratio,
         raise_errors=benchmark_config_params.raise_errors,
         cache_dir=benchmark_config_params.cache_dir,
         api_key=benchmark_config_params.api_key,
