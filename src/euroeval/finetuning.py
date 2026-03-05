@@ -98,6 +98,7 @@ def finetune(
                     iteration_idx=idx,
                     dtype=dtype,
                     batch_size=bs,
+                    metric_to_optimize=dataset_config.task.metrics[0]
                 )
 
                 itr_scores = finetune_single_iteration(
@@ -270,6 +271,7 @@ def get_training_args(
     iteration_idx: int,
     dtype: DataType,
     batch_size: int | None = None,
+    metric_to_optimize: str = "eval_loss",
 ) -> "TrainingArguments":
     """Get the training arguments for the current iteration.
 
@@ -286,6 +288,8 @@ def get_training_args(
         batch_size:
             The batch size to use for the current iteration, or None if the batch size
             in the benchmark config should be used.
+        metric_to_optimize:
+            The metric to use for selecting the best model.
 
     Returns:
         The training arguments for the current iteration.
@@ -299,6 +303,8 @@ def get_training_args(
 
     if batch_size is None:
         batch_size = benchmark_config.finetuning_batch_size
+
+    log_once(message=f"Optimizing for metric: {metric_to_optimize}", level=logging.DEBUG)
 
     training_args = TrainingArguments(
         output_dir=model_config.model_cache_dir,
@@ -320,6 +326,8 @@ def get_training_args(
         warmup_ratio=benchmark_config.warmup_ratio,
         gradient_accumulation_steps=32 // batch_size,
         load_best_model_at_end=True,
+        metric_for_best_model=metric_to_optimize,
+        greater_is_better=not metric_to_optimize.endswith("loss"),
         seed=4242 + iteration_idx,
         fp16=dtype == DataType.FP16,
         bf16=dtype == DataType.BF16,
