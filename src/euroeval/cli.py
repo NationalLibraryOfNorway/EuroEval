@@ -65,6 +65,12 @@ from .languages import get_all_languages
     help="The warmup ratio to use for finetuning.",
 )
 @click.option(
+    "--max-steps",
+    default=10_000,
+    type=int,
+    help="The maximum number of training steps.",
+)
+@click.option(
     "--progress-bar/--no-progress-bar",
     default=True,
     show_default=True,
@@ -285,6 +291,7 @@ def benchmark(
     finetuning_batch_size: str,
     learning_rate: float,
     warmup_ratio: float,
+    max_steps: int,
     progress_bar: bool,
     save_results: bool,
     cache_dir: str,
@@ -321,6 +328,7 @@ def benchmark(
         finetuning_batch_size=int(finetuning_batch_size),
         learning_rate=learning_rate,
         warmup_ratio=warmup_ratio,
+        max_steps=max_steps,
         progress_bar=progress_bar,
         save_results=save_results,
         raise_errors=raise_errors,

@@ -98,7 +98,7 @@ def finetune(
                     iteration_idx=idx,
                     dtype=dtype,
                     batch_size=bs,
-                    metric_to_optimize=dataset_config.task.metrics[0]
+                    metric_to_optimize=dataset_config.task.metrics[0].name
                 )
 
                 itr_scores = finetune_single_iteration(
@@ -219,6 +219,9 @@ def finetune_single_iteration(
         preprocess_logits_for_metrics=remove_extra_tensors_from_logits,
     )
 
+    if "original_val" in dataset:
+        trainer.orig_eval_dataset = dataset["original_val"]
+
     if not benchmark_config.verbose:
 
         def no_logging(logs: dict[str, float], start_time: float | None = None) -> None:
@@ -314,7 +317,7 @@ def get_training_args(
         eval_steps=30,
         logging_steps=30,
         save_steps=30,
-        max_steps=1 if hasattr(sys, "_called_from_test") else 10_000,
+        max_steps=1 if hasattr(sys, "_called_from_test") else benchmark_config.max_steps,
         use_cpu=benchmark_config.device == torch.device("cpu"),
         report_to=[],
         save_total_limit=1,

@@ -766,6 +766,8 @@ class BenchmarkConfig:
             The max learning rate to use for finetuning.
         warmup_ratio:
             The warmup ratio to use for finetuning.
+        max_steps:
+            The maximum number of steps to use for finetuning.
         raise_errors:
             Whether to raise errors instead of skipping them.
         cache_dir:
@@ -833,6 +835,7 @@ class BenchmarkConfig:
     finetuning_batch_size: int
     learning_rate: float
     warmup_ratio: float
+    max_steps: int
     raise_errors: bool
     cache_dir: str
     api_key: str | None
@@ -889,6 +892,7 @@ class BenchmarkConfigParams(pydantic.BaseModel):
     finetuning_batch_size: int
     learning_rate: float
     warmup_ratio: float
+    max_steps: int
     raise_errors: bool
     cache_dir: str
     api_key: str | None

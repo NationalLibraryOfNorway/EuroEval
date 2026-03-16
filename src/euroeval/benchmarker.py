@@ -64,6 +64,7 @@ class Benchmarker:
         finetuning_batch_size: int = 32,
         learning_rate: float = 2e-5,
         warmup_ratio: float = 0.01,
+        max_steps: int = 10_000,
         raise_errors: bool = False,
         cache_dir: str = ".euroeval_cache",
         api_key: str | None = None,
@@ -119,6 +120,8 @@ class Benchmarker:
                 The learning rate to use when finetuning. Defaults to 2e-5.
             warmup_ratio:
                 The warmup ratio to use when finetuning. Defaults to 0.01.
+            max_steps:
+                The max steps to finetune for. Defaults to 10 000.
             raise_errors:
                 Whether to raise errors instead of skipping the model evaluation.
                 Defaults to False.
@@ -267,6 +270,7 @@ class Benchmarker:
             finetuning_batch_size=finetuning_batch_size,
             learning_rate=learning_rate,
             warmup_ratio=warmup_ratio,
+            max_steps=max_steps,
             raise_errors=raise_errors,
             cache_dir=cache_dir,
             api_key=api_key,
@@ -394,6 +398,7 @@ class Benchmarker:
         finetuning_batch_size: int | None = None,
         learning_rate: float | None = None,
         warmup_ratio: float | None = None,
+        max_steps: int | None = None,
         raise_errors: bool | None = None,
         cache_dir: str | None = None,
         api_key: str | None = None,
@@ -463,6 +468,9 @@ class Benchmarker:
             warmup_ratio:
                 The warmup ratio to use for finetuning. Defaults to the value specified
                 when initialising the benchmarker.
+            max_steps:
+                The max steps to finetune for. Defaults to the value specified when
+                initialising the benchmarker.
             raise_errors:
                 Whether to raise errors instead of skipping the model evaluation.
             cache_dir:
@@ -636,6 +644,11 @@ class Benchmarker:
                 warmup_ratio
                 if warmup_ratio is not None
                 else self.benchmark_config_default_params.warmup_ratio
+            ),
+            max_steps=(
+                max_steps
+                if max_steps is not None
+                else self.benchmark_config_default_params.max_steps
             ),
             raise_errors=(
                 raise_errors

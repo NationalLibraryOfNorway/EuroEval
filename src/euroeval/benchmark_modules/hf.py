@@ -435,7 +435,7 @@ class HuggingFaceEncoderModel(BenchmarkModule):
                 if "val" in dataset:
                     data_dict["val"] = dataset["val"].map(
                         partial(
-                            question_answering.prepare_train_examples,
+                            question_answering.prepare_val_examples,
                             tokeniser=self._tokeniser,
                         ),
                         batched=True,
