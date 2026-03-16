@@ -1,9 +1,9 @@
 """Run a hyperparameter sweep for EuroEval finetuning benchmarks.
 
-This script sweeps learning rate, warmup ratio, and finetuning batch size for a
-single model (default: ltg/norbert4-xsmall), using EuroEval's Benchmarker API.
-Each trial writes its own results JSONL in an isolated folder, and the script
-builds a ranked summary file with the best configuration.
+This script sweeps learning rate, warmup ratio, finetuning batch size, and max
+steps for a single model (default: ltg/norbert4-xsmall), using EuroEval's
+Benchmarker API. Each trial writes its own results JSONL in an isolated folder,
+and the script builds a ranked summary file with the best configuration.
 """
 
 # ruff: noqa: I001
@@ -36,6 +36,7 @@ class TrialConfig:
     learning_rate: float
     warmup_ratio: float
     finetuning_batch_size: int
+    max_steps: int
 
 
 @dataclass
@@ -107,7 +108,8 @@ def _build_trial_name(config: TrialConfig) -> str:
     lr = f"{config.learning_rate:.1e}".replace("+", "")
     wr = str(config.warmup_ratio).replace(".", "p")
     bs = str(config.finetuning_batch_size)
-    return f"lr_{lr}_wr_{wr}_bs_{bs}"
+    ms = str(config.max_steps)
+    return f"lr_{lr}_wr_{wr}_bs_{bs}_ms_{ms}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,7 +130,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--learning-rates",
         type=str,
-        default="5e-6,1e-5,2e-5,5e-5,8e-5,1e-4,2e-4",
+        default="5e-6,1e-5,2e-5,5e-5,8e-5,1e-4,2e-4,5e-4",
         help="Comma-separated learning rates.",
     )
     parser.add_argument(
@@ -142,6 +144,12 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="32",
         help="Comma-separated finetuning batch sizes.",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=str,
+        default="160,320,640,1280",
+        help="Comma-separated maximum finetuning steps.",
     )
     parser.add_argument(
         "--language",
@@ -211,6 +219,7 @@ def main() -> None:
     learning_rates = _parse_float_list(args.learning_rates)
     warmup_ratios = _parse_float_list(args.warmup_ratios)
     batch_sizes = _parse_int_list(args.batch_sizes)
+    max_steps_values = _parse_int_list(args.max_steps)
     tasks = [task.strip() for task in args.tasks.split(",") if task.strip()] or None
 
     configs = [
@@ -218,9 +227,10 @@ def main() -> None:
             learning_rate=learning_rate,
             warmup_ratio=warmup_ratio,
             finetuning_batch_size=batch_size,
+            max_steps=max_steps,
         )
-        for learning_rate, warmup_ratio, batch_size in itertools.product(
-            learning_rates, warmup_ratios, batch_sizes
+        for learning_rate, warmup_ratio, batch_size, max_steps in itertools.product(
+            learning_rates, warmup_ratios, batch_sizes, max_steps_values
         )
     ]
 
@@ -243,6 +253,7 @@ def main() -> None:
                 learning_rate=config.learning_rate,
                 warmup_ratio=config.warmup_ratio,
                 finetuning_batch_size=config.finetuning_batch_size,
+                max_steps=config.max_steps,
                 num_iterations=args.num_iterations,
                 progress_bar=not args.no_progress_bar,
                 save_results=True,
@@ -301,6 +312,7 @@ def main() -> None:
             "learning_rate": row.config.learning_rate,
             "warmup_ratio": row.config.warmup_ratio,
             "finetuning_batch_size": row.config.finetuning_batch_size,
+            "max_steps": row.config.max_steps,
             "objective_score": row.objective_score,
             "num_records": row.num_records,
             "trial_dir": str(row.trial_dir),
@@ -317,6 +329,7 @@ def main() -> None:
                 "learning_rate",
                 "warmup_ratio",
                 "finetuning_batch_size",
+                "max_steps",
                 "objective_score",
                 "num_records",
                 "trial_dir",
@@ -330,6 +343,7 @@ def main() -> None:
                     "learning_rate": row.config.learning_rate,
                     "warmup_ratio": row.config.warmup_ratio,
                     "finetuning_batch_size": row.config.finetuning_batch_size,
+                    "max_steps": row.config.max_steps,
                     "objective_score": row.objective_score,
                     "num_records": row.num_records,
                     "trial_dir": str(row.trial_dir),
@@ -349,6 +363,7 @@ def main() -> None:
     print(f"  learning_rate={best.config.learning_rate}")
     print(f"  warmup_ratio={best.config.warmup_ratio}")
     print(f"  finetuning_batch_size={best.config.finetuning_batch_size}")
+    print(f"  max_steps={best.config.max_steps}")
     print(f"  objective_score={best.objective_score:.4f}")
     print(f"  trial_dir={best.trial_dir}")
 
