@@ -60,7 +60,7 @@ def build_benchmark_config(
         finetuning_batch_size=benchmark_config_params.finetuning_batch_size,
         learning_rate=benchmark_config_params.learning_rate,
         warmup_ratio=benchmark_config_params.warmup_ratio,
-        max_steps=benchmark_config_params.max_steps
+        max_steps=benchmark_config_params.max_steps,
         raise_errors=benchmark_config_params.raise_errors,
         cache_dir=benchmark_config_params.cache_dir,
         api_key=benchmark_config_params.api_key,
