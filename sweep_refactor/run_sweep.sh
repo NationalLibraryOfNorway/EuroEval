@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+source /scratch/project_465002270/nb-embed/EuroEval/.venv/bin/activate
+
 MODELS="${MODELS:-ltg/norbert4-xsmall}"
 LEARNING_RATES="${LEARNING_RATES:-5e-6,1e-5,2e-5,5e-5,8e-5,1e-4,2e-4,5e-4}"
 WARMUP_RATIOS="${WARMUP_RATIOS:-0.0,0.01,0.05,0.1}"
@@ -16,7 +18,7 @@ TRUST_REMOTE_CODE="${TRUST_REMOTE_CODE:-1}"
 PRIORITIZE_MASK="${PRIORITIZE_MASK:-1}"
 WANDB="${WANDB:-0}"
 WANDB_PROJECT="${WANDB_PROJECT:-euroeval-sweeps}"
-WANDB_ENTITY="${WANDB_ENTITY:-}"
+WANDB_ENTITY="${WANDB_ENTITY:-nbailab}"
 WANDB_RUN_NAME="${WANDB_RUN_NAME:-}"
 WANDB_GROUP="${WANDB_GROUP:-}"
 WANDB_TAGS="${WANDB_TAGS:-euroeval,sweep}"
@@ -74,5 +76,7 @@ if [[ "$WANDB" == "1" ]]; then
         CMD+=(--wandb-group "$WANDB_GROUP")
     fi
 fi
+
+echo ${CMD[@]}
 
 "${CMD[@]}"

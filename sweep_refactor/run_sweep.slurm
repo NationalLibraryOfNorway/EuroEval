@@ -39,4 +39,11 @@ export WANDB_NOTES="${WANDB_NOTES:-}"
 # module purge
 # module load cuda/12.1
 
-bash sweep_refactor/run_sweep.sh
+module use /appl/local/laifs/modules 
+module load lumi-aif-singularity-bindings
+export HF_HOME=/scratch/project_465002270/nb-embed/huggingface_cache/
+export HIP_VISIBLE_DEVICES=0
+export TORCH_COMPILE_DISABLE=1
+export SIF=/appl/local/laifs/containers/lumi-multitorch-u24r64f21m43t29-20260225_144743/lumi-multitorch-full-u24r64f21m43t29-20260225_144743.sif
+
+singularity exec $SIF sweep_refactor/run_sweep.sh
