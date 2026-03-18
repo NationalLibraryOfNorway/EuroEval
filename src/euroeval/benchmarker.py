@@ -92,6 +92,13 @@ class Benchmarker:
         batch_size: int | None = None,
         max_context_length: int | None = None,
         vocabulary_size: int | None = None,
+        wandb: bool = False,
+        wandb_project: str | None = None,
+        wandb_entity: str | None = None,
+        wandb_group: str | None = None,
+        wandb_tags: c.Sequence[str] | None = None,
+        wandb_mode: str = "online",
+        wandb_run_name: str | None = None,
     ) -> None:
         """Initialise the benchmarker.
 
@@ -192,6 +199,20 @@ class Benchmarker:
             vocabulary_size:
                 Override for the vocabulary size of the model. If None, the value will
                 be inferred automatically from the model. Defaults to None.
+            wandb:
+                Whether to enable W&B logging during finetuning. Defaults to False.
+            wandb_project:
+                Optional W&B project name.
+            wandb_entity:
+                Optional W&B entity (team or user).
+            wandb_group:
+                Optional W&B group name.
+            wandb_tags:
+                Optional tags to attach to W&B runs.
+            wandb_mode:
+                W&B mode. One of "online", "offline", or "disabled".
+            wandb_run_name:
+                Optional explicit W&B run name.
 
         Raises:
             ValueError:
@@ -293,6 +314,13 @@ class Benchmarker:
             run_with_cli=run_with_cli,
             max_context_length=max_context_length,
             vocabulary_size=vocabulary_size,
+            wandb=wandb,
+            wandb_project=wandb_project,
+            wandb_entity=wandb_entity,
+            wandb_group=wandb_group,
+            wandb_tags=wandb_tags,
+            wandb_mode=wandb_mode,
+            wandb_run_name=wandb_run_name,
         )
 
         self.benchmark_config = build_benchmark_config(
@@ -427,6 +455,13 @@ class Benchmarker:
         batch_size: int | None = None,
         max_context_length: int | None = None,
         vocabulary_size: int | None = None,
+        wandb: bool | None = None,
+        wandb_project: str | None = None,
+        wandb_entity: str | None = None,
+        wandb_group: str | None = None,
+        wandb_tags: c.Sequence[str] | None = None,
+        wandb_mode: str | None = None,
+        wandb_run_name: str | None = None,
     ) -> c.Sequence[BenchmarkResult]:
         """Benchmarks models on datasets.
 
@@ -555,6 +590,21 @@ class Benchmarker:
                 Override for the vocabulary size of the model. If None, the value will
                 be inferred automatically from the model. Defaults to the value
                 specified when initialising the benchmarker.
+            wandb:
+                Whether to enable W&B logging during finetuning. Defaults to the value
+                specified when initialising the benchmarker.
+            wandb_project:
+                Optional W&B project name.
+            wandb_entity:
+                Optional W&B entity (team or user).
+            wandb_group:
+                Optional W&B group name.
+            wandb_tags:
+                Optional tags to attach to W&B runs.
+            wandb_mode:
+                W&B mode. One of "online", "offline", or "disabled".
+            wandb_run_name:
+                Optional explicit W&B run name.
 
         Returns:
             A list of benchmark results.
@@ -755,6 +805,41 @@ class Benchmarker:
                 vocabulary_size
                 if vocabulary_size is not None
                 else self.benchmark_config_default_params.vocabulary_size
+            ),
+            wandb=(
+                wandb
+                if wandb is not None
+                else self.benchmark_config_default_params.wandb
+            ),
+            wandb_project=(
+                wandb_project
+                if wandb_project is not None
+                else self.benchmark_config_default_params.wandb_project
+            ),
+            wandb_entity=(
+                wandb_entity
+                if wandb_entity is not None
+                else self.benchmark_config_default_params.wandb_entity
+            ),
+            wandb_group=(
+                wandb_group
+                if wandb_group is not None
+                else self.benchmark_config_default_params.wandb_group
+            ),
+            wandb_tags=(
+                wandb_tags
+                if wandb_tags is not None
+                else self.benchmark_config_default_params.wandb_tags
+            ),
+            wandb_mode=(
+                wandb_mode
+                if wandb_mode is not None
+                else self.benchmark_config_default_params.wandb_mode
+            ),
+            wandb_run_name=(
+                wandb_run_name
+                if wandb_run_name is not None
+                else self.benchmark_config_default_params.wandb_run_name
             ),
         )
         benchmark_config = build_benchmark_config(

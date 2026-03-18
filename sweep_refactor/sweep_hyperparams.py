@@ -746,6 +746,13 @@ def main() -> None:
                 cache_dir=args.cache_dir,
                 force=args.force,
                 raise_errors=True,
+                wandb=args.wandb,
+                wandb_project=args.wandb_project,
+                wandb_entity=args.wandb_entity or None,
+                wandb_group=sweep_group,
+                wandb_tags=_parse_tags(args.wandb_tags),
+                wandb_mode=args.wandb_mode,
+                wandb_run_name=trial_name,
             )
 
             benchmark_results = list(

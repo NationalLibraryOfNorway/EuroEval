@@ -828,6 +828,20 @@ class BenchmarkConfig:
         vocabulary_size:
             Override for the vocabulary size of the model. If None, the value will be
             inferred automatically from the model.
+        wandb:
+            Whether to enable W&B logging during finetuning.
+        wandb_project:
+            Optional W&B project name.
+        wandb_entity:
+            Optional W&B entity (team or user).
+        wandb_group:
+            Optional W&B group name.
+        wandb_tags:
+            Optional tags to attach to W&B runs.
+        wandb_mode:
+            W&B mode. One of "online", "offline", or "disabled".
+        wandb_run_name:
+            Optional explicit W&B run name.
     """
 
     datasets: c.Sequence[DatasetConfig]
@@ -862,6 +876,13 @@ class BenchmarkConfig:
     run_with_cli: bool
     max_context_length: int | None
     vocabulary_size: int | None
+    wandb: bool = False
+    wandb_project: str | None = None
+    wandb_entity: str | None = None
+    wandb_group: str | None = None
+    wandb_tags: c.Sequence[str] | None = None
+    wandb_mode: str = "online"
+    wandb_run_name: str | None = None
 
     @property
     def tasks(self) -> c.Sequence[Task]:
@@ -917,6 +938,13 @@ class BenchmarkConfigParams(pydantic.BaseModel):
     run_with_cli: bool
     max_context_length: int | None
     vocabulary_size: int | None
+    wandb: bool = False
+    wandb_project: str | None = None
+    wandb_entity: str | None = None
+    wandb_group: str | None = None
+    wandb_tags: c.Sequence[str] | None = None
+    wandb_mode: str = "online"
+    wandb_run_name: str | None = None
 
 
 class BenchmarkResult(pydantic.BaseModel):

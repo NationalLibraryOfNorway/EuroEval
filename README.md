@@ -31,6 +31,81 @@ ______________________________________________________________________
 
 See the [documentation](https://euroeval.com/python-package/) for more information.
 
+## Weights & Biases (W&B) usage
+
+EuroEval supports W&B logging for both the core benchmark/finetuning pipeline and
+the sweep tooling.
+
+### Setup
+
+Install W&B:
+
+```bash
+pip install wandb
+```
+
+Authenticate once:
+
+```bash
+wandb login
+```
+
+### Benchmark and finetuning logging (CLI)
+
+Use these options on the main EuroEval CLI to log finetuning metrics from the
+Hugging Face Trainer:
+
+- `--wandb / --no-wandb`
+- `--wandb-project`
+- `--wandb-entity`
+- `--wandb-group`
+- `--wandb-tags` (comma-separated)
+- `--wandb-mode` (`online`, `offline`, or `disabled`)
+- `--wandb-run-name`
+
+Example:
+
+```bash
+python -m euroeval.cli \
+    --model ltg/norbert4-xsmall \
+    --task sentiment-classification \
+    --language no \
+    --wandb \
+    --wandb-project euroeval \
+    --wandb-entity your-team-or-user \
+    --wandb-group finetuning-experiments \
+    --wandb-tags "euroeval,finetuning,no" \
+    --wandb-mode online
+```
+
+Offline example (sync later with `wandb sync`):
+
+```bash
+python -m euroeval.cli \
+    --model ltg/norbert4-xsmall \
+    --task sentiment-classification \
+    --language no \
+    --wandb \
+    --wandb-project euroeval \
+    --wandb-mode offline
+```
+
+### Sweep logging
+
+The sweep runner in [sweep_refactor/README.md](sweep_refactor/README.md)
+contains a full W&B guide for hyperparameter sweeps, including task-level metrics,
+standard errors, and aggregate benchmark score logging.
+
+Quick sweep example:
+
+```bash
+export WANDB=1
+export WANDB_PROJECT="euroeval-sweeps"
+export WANDB_ENTITY="your-team-or-user"
+export WANDB_GROUP="norwegian-models"
+bash sweep_refactor/run_sweep.sh
+```
+
 ## Reproducing the evaluation datasets
 
 All datasets used in this project are generated using the scripts located in the

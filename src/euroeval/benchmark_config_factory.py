@@ -89,6 +89,13 @@ def build_benchmark_config(
         download_only=benchmark_config_params.download_only,
         max_context_length=benchmark_config_params.max_context_length,
         vocabulary_size=benchmark_config_params.vocabulary_size,
+        wandb=benchmark_config_params.wandb,
+        wandb_project=benchmark_config_params.wandb_project,
+        wandb_entity=benchmark_config_params.wandb_entity,
+        wandb_group=benchmark_config_params.wandb_group,
+        wandb_tags=benchmark_config_params.wandb_tags,
+        wandb_mode=benchmark_config_params.wandb_mode,
+        wandb_run_name=benchmark_config_params.wandb_run_name,
     )
 
 

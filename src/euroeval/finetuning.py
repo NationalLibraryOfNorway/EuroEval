@@ -1,7 +1,9 @@
 """Functions related to the finetuning of models."""
 
 import collections.abc as c
+import importlib.util
 import logging
+import os
 import sys
 import typing as t
 from functools import partial
@@ -92,13 +94,22 @@ def finetune(
                 # package before training
                 block_terminal_output()
 
+                wandb_run_name = _configure_wandb(
+                    benchmark_config=benchmark_config,
+                    model_config=model_config,
+                    dataset_config=dataset_config,
+                    iteration_idx=idx,
+                )
+
                 training_args = get_training_args(
                     benchmark_config=benchmark_config,
                     model_config=model_config,
                     iteration_idx=idx,
                     dtype=dtype,
                     batch_size=bs,
-                    metric_to_optimize=dataset_config.task.metrics[0].name
+                    metric_to_optimize=dataset_config.task.metrics[0].name,
+                    enable_wandb=benchmark_config.wandb,
+                    wandb_run_name=wandb_run_name,
                 )
 
                 itr_scores = finetune_single_iteration(
@@ -275,6 +286,8 @@ def get_training_args(
     dtype: DataType,
     batch_size: int | None = None,
     metric_to_optimize: str = "eval_loss",
+    enable_wandb: bool = False,
+    wandb_run_name: str | None = None,
 ) -> "TrainingArguments":
     """Get the training arguments for the current iteration.
 
@@ -293,6 +306,10 @@ def get_training_args(
             in the benchmark config should be used.
         metric_to_optimize:
             The metric to use for selecting the best model.
+        enable_wandb:
+            Whether to report training logs to Weights & Biases.
+        wandb_run_name:
+            Optional explicit W&B run name.
 
     Returns:
         The training arguments for the current iteration.
@@ -319,7 +336,8 @@ def get_training_args(
         save_steps=30,
         max_steps=1 if hasattr(sys, "_called_from_test") else benchmark_config.max_steps,
         use_cpu=benchmark_config.device == torch.device("cpu"),
-        report_to=[],
+        report_to=["wandb"] if enable_wandb else [],
+        run_name=wandb_run_name,
         save_total_limit=1,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
@@ -344,6 +362,58 @@ def get_training_args(
         training_args._n_gpu = 1
 
     return training_args
+
+
+def _configure_wandb(
+    benchmark_config: "BenchmarkConfig",
+    model_config: "ModelConfig",
+    dataset_config: "DatasetConfig",
+    iteration_idx: int,
+) -> str | None:
+    """Configure W&B environment and build a run name for finetuning.
+
+    Args:
+        benchmark_config:
+            The benchmark configuration.
+        model_config:
+            The model configuration.
+        dataset_config:
+            The dataset configuration.
+        iteration_idx:
+            The current iteration index.
+
+    Returns:
+        The W&B run name if W&B is enabled, otherwise None.
+
+    Raises:
+        InvalidBenchmark:
+            If W&B logging is enabled but the `wandb` package is not installed.
+    """
+    if not benchmark_config.wandb:
+        return None
+
+    if importlib.util.find_spec("wandb") is None:
+        raise InvalidBenchmark(
+            "W&B logging is enabled, but the `wandb` package is not installed. "
+            "Install it with `pip install wandb` or disable W&B."
+        )
+
+    if benchmark_config.wandb_project is not None:
+        os.environ["WANDB_PROJECT"] = benchmark_config.wandb_project
+    if benchmark_config.wandb_entity is not None:
+        os.environ["WANDB_ENTITY"] = benchmark_config.wandb_entity
+    if benchmark_config.wandb_group is not None:
+        os.environ["WANDB_GROUP"] = benchmark_config.wandb_group
+    if benchmark_config.wandb_tags is not None:
+        os.environ["WANDB_TAGS"] = ",".join(benchmark_config.wandb_tags)
+    os.environ["WANDB_MODE"] = benchmark_config.wandb_mode
+
+    if benchmark_config.wandb_run_name is not None:
+        return benchmark_config.wandb_run_name
+
+    model_name = model_config.model_id.replace("/", "__")
+    dataset_name = dataset_config.name or "unknown_dataset"
+    return f"{model_name}__{dataset_name}__itr_{iteration_idx + 1}"
 
 
 def remove_extra_tensors_from_logits(

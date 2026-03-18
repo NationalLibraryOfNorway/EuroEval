@@ -282,6 +282,54 @@ from .languages import get_all_languages
     help="Whether to run the benchmark with the masked version of the model, \
           when the model can be run in both fashions.",
 )
+@click.option(
+    "--wandb/--no-wandb",
+    default=False,
+    show_default=True,
+    help="Enable Weights & Biases logging for finetuning.",
+)
+@click.option(
+    "--wandb-project",
+    default=None,
+    show_default=True,
+    type=str,
+    help="Optional W&B project name.",
+)
+@click.option(
+    "--wandb-entity",
+    default=None,
+    show_default=True,
+    type=str,
+    help="Optional W&B entity (team or user).",
+)
+@click.option(
+    "--wandb-group",
+    default=None,
+    show_default=True,
+    type=str,
+    help="Optional W&B group name.",
+)
+@click.option(
+    "--wandb-tags",
+    default="",
+    show_default=True,
+    type=str,
+    help="Comma-separated W&B tags.",
+)
+@click.option(
+    "--wandb-mode",
+    default="online",
+    show_default=True,
+    type=click.Choice(["online", "offline", "disabled"], case_sensitive=True),
+    help="W&B mode.",
+)
+@click.option(
+    "--wandb-run-name",
+    default=None,
+    show_default=True,
+    type=str,
+    help="Optional explicit W&B run name.",
+)
 def benchmark(
     model: tuple[str],
     dataset: tuple[str | DatasetConfig],
@@ -319,6 +367,13 @@ def benchmark(
     vocabulary_size: int | None,
     batch_size: str | None,
     prioritize_mask: bool,
+    wandb: bool,
+    wandb_project: str | None,
+    wandb_entity: str | None,
+    wandb_group: str | None,
+    wandb_tags: str,
+    wandb_mode: str,
+    wandb_run_name: str | None,
 ) -> None:
     """Benchmark pretrained language models on language tasks."""
     Benchmarker(
@@ -359,6 +414,13 @@ def benchmark(
         batch_size=int(batch_size) if batch_size is not None else None,
         max_context_length=max_context_length,
         vocabulary_size=vocabulary_size,
+        wandb=wandb,
+        wandb_project=wandb_project,
+        wandb_entity=wandb_entity,
+        wandb_group=wandb_group,
+        wandb_tags=[tag.strip() for tag in wandb_tags.split(",") if tag.strip()] or None,
+        wandb_mode=wandb_mode,
+        wandb_run_name=wandb_run_name,
     ).benchmark(model=list(model), prioritize_mask=prioritize_mask)
 
 
