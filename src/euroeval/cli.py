@@ -71,6 +71,72 @@ from .languages import get_all_languages
     help="The maximum number of training steps.",
 )
 @click.option(
+    "--eval-steps",
+    default=30,
+    type=int,
+    help="How often to evaluate the model during training.",
+)
+@click.option(
+    "--logging-steps",
+    default=30,
+    type=int,
+    help="How often to log training metrics.",
+)
+@click.option(
+    "--save-steps",
+    default=30,
+    type=int,
+    help="How often to save model checkpoints.",
+)
+@click.option(
+    "--eval-accumulation-steps",
+    default=32,
+    type=int,
+    help="Number of steps to accumulate gradients for evaluation.",
+)
+@click.option(
+    "--gradient-accumulation-base",
+    default=32,
+    type=int,
+    help="Base value for computing gradient accumulation steps.",
+)
+@click.option(
+    "--early-stopping-patience",
+    default=5,
+    type=int,
+    help="Number of evaluation steps with no improvement before stopping.",
+)
+@click.option(
+    "--optimizer-name",
+    default="adamw_torch",
+    type=str,
+    help="Optimizer to use (e.g., adamw_torch, adamw_8bit, sgd).",
+)
+@click.option(
+    "--save-total-limit",
+    default=1,
+    type=int,
+    help="Maximum number of model checkpoints to keep.",
+)
+@click.option(
+    "--per-device-eval-batch-size",
+    default=None,
+    type=int,
+    help="Batch size for evaluation (if None, uses training batch size).",
+)
+@click.option(
+    "--weight-decay",
+    default=0.0,
+    type=float,
+    help="Weight decay (L2 regularization) coefficient.",
+)
+@click.option(
+    "--lr-scheduler-type",
+    default="linear",
+    type=str,
+    help="Learning rate scheduler type (e.g., linear, cosine, polynomial).",
+)
+@click.option(
     "--progress-bar/--no-progress-bar",
     default=True,
     show_default=True,
@@ -292,6 +358,17 @@ def benchmark(
     learning_rate: float,
     warmup_ratio: float,
     max_steps: int,
+    eval_steps: int,
+    logging_steps: int,
+    save_steps: int,
+    eval_accumulation_steps: int,
+    gradient_accumulation_base: int,
+    early_stopping_patience: int,
+    optimizer_name: str,
+    save_total_limit: int,
+    per_device_eval_batch_size: int | None,
+    weight_decay: float,
+    lr_scheduler_type: str,
     progress_bar: bool,
     save_results: bool,
     cache_dir: str,
@@ -329,6 +406,17 @@ def benchmark(
         learning_rate=learning_rate,
         warmup_ratio=warmup_ratio,
         max_steps=max_steps,
+        eval_steps=eval_steps,
+        logging_steps=logging_steps,
+        save_steps=save_steps,
+        eval_accumulation_steps=eval_accumulation_steps,
+        gradient_accumulation_base=gradient_accumulation_base,
+        early_stopping_patience=early_stopping_patience,
+        optimizer_name=optimizer_name,
+        save_total_limit=save_total_limit,
+        per_device_eval_batch_size=per_device_eval_batch_size,
+        weight_decay=weight_decay,
+        lr_scheduler_type=lr_scheduler_type,
         progress_bar=progress_bar,
         save_results=save_results,
         raise_errors=raise_errors,

@@ -768,6 +768,28 @@ class BenchmarkConfig:
             The warmup ratio to use for finetuning.
         max_steps:
             The maximum number of steps to use for finetuning.
+        eval_steps:
+            How often to evaluate the model during training.
+        logging_steps:
+            How often to log training metrics.
+        save_steps:
+            How often to save model checkpoints.
+        eval_accumulation_steps:
+            Number of steps to accumulate gradients for evaluation.
+        gradient_accumulation_base:
+            Base value for computing gradient accumulation steps (actual value is base // batch_size).
+        early_stopping_patience:
+            Number of evaluation steps with no improvement to wait before stopping training.
+        optimizer_name:
+            Optimizer to use for training (e.g., 'adamw_torch', 'adamw_8bit', 'sgd').
+        save_total_limit:
+            Maximum number of model checkpoints to keep.
+        per_device_eval_batch_size:
+            Batch size for evaluation (if None, uses training batch size).
+        weight_decay:
+            Weight decay (L2 regularization) coefficient.
+        lr_scheduler_type:
+            Learning rate scheduler type (e.g., 'linear', 'cosine', 'polynomial').
         raise_errors:
             Whether to raise errors instead of skipping them.
         cache_dir:
@@ -836,6 +858,17 @@ class BenchmarkConfig:
     learning_rate: float
     warmup_ratio: float
     max_steps: int
+    eval_steps: int
+    logging_steps: int
+    save_steps: int
+    eval_accumulation_steps: int
+    gradient_accumulation_base: int
+    early_stopping_patience: int
+    optimizer_name: str
+    save_total_limit: int
+    per_device_eval_batch_size: int | None
+    weight_decay: float
+    lr_scheduler_type: str
     raise_errors: bool
     cache_dir: str
     api_key: str | None
@@ -893,6 +926,17 @@ class BenchmarkConfigParams(pydantic.BaseModel):
     learning_rate: float
     warmup_ratio: float
     max_steps: int
+    eval_steps: int
+    logging_steps: int
+    save_steps: int
+    eval_accumulation_steps: int
+    gradient_accumulation_base: int
+    early_stopping_patience: int
+    optimizer_name: str
+    save_total_limit: int
+    per_device_eval_batch_size: int | None
+    weight_decay: float
+    lr_scheduler_type: str
     raise_errors: bool
     cache_dir: str
     api_key: str | None

@@ -31,6 +31,93 @@ ______________________________________________________________________
 
 See the [documentation](https://euroeval.com/python-package/) for more information.
 
+## Configurable Finetuning Hyperparameters
+
+EuroEval exposes comprehensive finetuning hyperparameters that can be customized both via CLI and programmatically. All parameters have sensible defaults based on standard best practices.
+
+### Core Training Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--learning-rate` | `2e-5` | Maximum learning rate for training |
+| `--warmup-ratio` | `0.01` | Fraction of training steps for learning rate warmup |
+| `--finetuning-batch-size` | `32` | Training batch size per device |
+| `--max-steps` | `10000` | Maximum number of training steps |
+
+### Evaluation & Checkpointing
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--eval-steps` | `30` | How often to evaluate the model during training |
+| `--save-steps` | `30` | How often to save model checkpoints |
+| `--save-total-limit` | `1` | Maximum number of checkpoints to keep |
+| `--logging-steps` | `30` | How often to log training metrics |
+
+### Optimization & Regularization
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--optimizer-name` | `adamw_torch` | Optimizer to use (adamw_torch, adamw_8bit, sgd, etc.) |
+| `--weight-decay` | `0.0` | L2 regularization coefficient |
+| `--lr-scheduler-type` | `linear` | LR scheduler type (linear, cosine, polynomial, etc.) |
+
+### Gradient Accumulation & Early Stopping
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--gradient-accumulation-base` | `32` | Base value for computing gradient accumulation (final: base ÷ batch_size) |
+| `--eval-accumulation-steps` | `32` | Accumulation steps for evaluation |
+| `--early-stopping-patience` | `5` | Evaluation steps with no improvement before stopping |
+| `--per-device-eval-batch-size` | `None` | Separate eval batch size (if None, uses training batch size) |
+
+### Example Usage
+
+```bash
+# Default hyperparameters
+euroeval-benchmark --model bert-base-uncased --language en
+
+# Custom learning rate and batch size
+euroeval-benchmark --model bert-base-uncased --learning-rate 5e-5 --finetuning-batch-size 16
+
+# Aggressive early stopping with custom optimizer
+euroeval-benchmark --model bert-base-uncased \
+  --early-stopping-patience 3 \
+  --optimizer-name adamw_8bit \
+  --weight-decay 0.01
+
+# Cosine annealing with custom evaluation frequency
+euroeval-benchmark --model bert-base-uncased \
+  --lr-scheduler-type cosine \
+  --eval-steps 50 \
+  --logging-steps 50
+
+# Different eval batch size for memory efficiency
+euroeval-benchmark --model bert-base-uncased \
+  --finetuning-batch-size 32 \
+  --per-device-eval-batch-size 64
+```
+
+### Programmatic Usage
+
+```python
+from euroeval import Benchmarker
+
+benchmarker = Benchmarker(
+    learning_rate=5e-5,
+    warmup_ratio=0.1,
+    finetuning_batch_size=16,
+    max_steps=5000,
+    eval_steps=50,
+    save_steps=50,
+    optimizer_name="adamw_8bit",
+    weight_decay=0.01,
+    lr_scheduler_type="cosine",
+    early_stopping_patience=3,
+)
+
+benchmarker.benchmark(model=["bert-base-uncased"])
+```
+
 ## Reproducing the evaluation datasets
 
 All datasets used in this project are generated using the scripts located in the

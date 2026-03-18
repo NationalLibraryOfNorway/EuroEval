@@ -214,7 +214,11 @@ def finetune_single_iteration(
         train_dataset=dataset["train"],
         eval_dataset=dataset["val"],
         compute_metrics=partial(model.compute_metrics, dataset=None),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+        callbacks=[
+            EarlyStoppingCallback(
+                early_stopping_patience=benchmark_config.early_stopping_patience
+            )
+        ],
         data_collator=model.data_collator,
         preprocess_logits_for_metrics=remove_extra_tensors_from_logits,
     )
@@ -307,6 +311,28 @@ def get_training_args(
     if batch_size is None:
         batch_size = benchmark_config.finetuning_batch_size
 
+    # Use eval batch size if specified, otherwise use training batch size
+    eval_batch_size = (
+        benchmark_config.per_device_eval_batch_size
+        if benchmark_config.per_device_eval_batch_size is not None
+        else batch_size
+    )
+
+    # Compute gradient accumulation steps
+    gradient_accumulation_steps = max(
+        1, benchmark_config.gradient_accumulation_base // batch_size
+    )
+
+    # Convert optimizer name string to OptimizerNames enum
+    try:
+        optimizer = OptimizerNames(benchmark_config.optimizer_name.lower())
+    except ValueError:
+        log_once(
+            message=f"Unknown optimizer '{benchmark_config.optimizer_name}', using ADAMW_TORCH",
+            level=logging.WARNING,
+        )
+        optimizer = OptimizerNames.ADAMW_TORCH
+
     log_once(message=f"Optimizing for metric: {metric_to_optimize}", level=logging.DEBUG)
 
     training_args = TrainingArguments(
@@ -314,20 +340,22 @@ def get_training_args(
         eval_strategy=IntervalStrategy.STEPS,
         logging_strategy=logging_strategy,
         save_strategy=IntervalStrategy.STEPS,
-        eval_steps=30,
-        logging_steps=30,
-        save_steps=30,
+        eval_steps=benchmark_config.eval_steps,
+        logging_steps=benchmark_config.logging_steps,
+        save_steps=benchmark_config.save_steps,
         max_steps=1 if hasattr(sys, "_called_from_test") else benchmark_config.max_steps,
         use_cpu=benchmark_config.device == torch.device("cpu"),
         report_to=[],
-        save_total_limit=1,
+        save_total_limit=benchmark_config.save_total_limit,
         per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        eval_accumulation_steps=32,
-        optim=OptimizerNames.ADAMW_TORCH,
+        per_device_eval_batch_size=eval_batch_size,
+        eval_accumulation_steps=benchmark_config.eval_accumulation_steps,
+        optim=optimizer,
         learning_rate=benchmark_config.learning_rate,
         warmup_ratio=benchmark_config.warmup_ratio,
-        gradient_accumulation_steps=32 // batch_size,
+        weight_decay=benchmark_config.weight_decay,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        lr_scheduler_type=benchmark_config.lr_scheduler_type,
         load_best_model_at_end=True,
         metric_for_best_model=metric_to_optimize,
         greater_is_better=not metric_to_optimize.endswith("loss"),

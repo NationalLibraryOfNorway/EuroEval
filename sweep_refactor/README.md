@@ -41,8 +41,20 @@ Cartesian product combinations of:
 - `warmup_ratio`: Warmup schedule ratios (e.g., `0.0,0.1`)
 - `finetuning_batch_size`: Training batch sizes (e.g., `16,32`)
 - `max_steps`: Maximum finetuning steps (e.g., `320,640,1280`)
+- `weight_decay`: Weight decay values (e.g., `0.0,0.01,0.1`)
+- `lr_scheduler_type`: LR scheduler types (e.g., `linear,cosine`)
 
 Each configuration is evaluated via `euroeval.Benchmarker` across specified tasks and languages.
+
+### Fixed Finetuning Hyperparameters
+
+Beyond the swept parameters, additional EuroEval finetuning hyperparameters can be configured
+as fixed values that apply uniformly to all trials. See the [main README](../README.md#configurable-finetuning-hyperparameters)
+for the complete list, which includes:
+
+- **Evaluation & Checkpointing**: `eval_steps`, `save_steps`, `save_total_limit`, `logging_steps`
+- **Optimization**: `optimizer_name`, `save_total_limit`
+- **Gradient Accumulation & Early Stopping**: `gradient_accumulation_base`, `eval_accumulation_steps`, `early_stopping_patience`, `per_device_eval_batch_size`
 
 ## Output Files
 
@@ -225,6 +237,16 @@ python sweep_refactor/sweep_hyperparams.py \
   --warmup-ratios "0.0,0.1" \
   --batch-sizes "16,32" \
   --max-steps "320,640" \
+  --weight-decays "0.0,0.01" \
+  --lr-scheduler-types "linear,cosine" \
+  --eval-steps 50 \
+  --logging-steps 50 \
+  --save-steps 50 \
+  --eval-accumulation-steps 32 \
+  --gradient-accumulation-base 32 \
+  --early-stopping-patience 5 \
+  --optimizer-name adamw_torch \
+  --save-total-limit 1 \
   --language "no" \
   --tasks "sentiment-classification,linguistic-acceptability" \
   --num-iterations 3 \
@@ -250,9 +272,27 @@ python sweep_refactor/sweep_hyperparams.py \
 | `--warmup-ratios` | `0.0,0.01,0.05,0.1` | Comma-separated warmup ratios |
 | `--batch-sizes` | `32` | Comma-separated batch sizes |
 | `--max-steps` | `160,320,640,1280` | Comma-separated max steps |
+| `--weight-decays` | `0.0` | Comma-separated weight decay values to sweep |
+| `--lr-scheduler-types` | `linear` | Comma-separated LR scheduler types to sweep |
 | `--language` | `no` | Language filter for Benchmarker |
 | `--tasks` | (empty) | Optional comma-separated tasks to restrict sweep |
 | `--num-iterations` | `3` | Benchmark iterations per trial |
+
+### Finetuning Hyperparameters
+
+These parameters apply **uniformly to all trials** in the sweep:
+
+| Argument | Default | Description |
+| ---------- | --------- | ------------- |
+| `--eval-steps` | `30` | How often to evaluate the model during training |
+| `--logging-steps` | `30` | How often to log training metrics |
+| `--save-steps` | `30` | How often to save model checkpoints |
+| `--eval-accumulation-steps` | `32` | Accumulation steps for evaluation |
+| `--gradient-accumulation-base` | `32` | Base for gradient accumulation (actual: base ÷ batch_size) |
+| `--early-stopping-patience` | `5` | Evaluation steps with no improvement before stopping |
+| `--optimizer-name` | `adamw_torch` | Optimizer choice (adamw_torch, adamw_8bit, sgd, etc.) |
+| `--save-total-limit` | `1` | Maximum number of checkpoints to keep |
+| `--per-device-eval-batch-size` | (empty) | Separate eval batch size (None = uses training batch size) |
 
 ### Output & Control
 
@@ -325,12 +365,77 @@ OUTPUT_DIR="sweep_runs/large_batch_trial" \
   sweep_refactor/run_sweep.slurm
 ```
 
+### Custom Finetuning Hyperparameters (Local)
+
+Example with custom optimizer, learning rate scheduler, and early stopping:
+
+```bash
+export MODELS="ltg/norbert4-xsmall"
+export LEARNING_RATES="1e-5,5e-5"
+export WARMUP_RATIOS="0.1"
+export BATCH_SIZES="32"
+export MAX_STEPS="640"
+export WEIGHT_DECAYS="0.0,0.01"   # swept
+export LR_SCHEDULER_TYPES="linear,cosine"   # swept
+export LANGUAGE="en"
+export OPTIMIZER_NAME="adamw_8bit"
+export EARLY_STOPPING_PATIENCE="3"
+export EVAL_STEPS="100"
+export LOGGING_STEPS="100"
+bash sweep_refactor/run_sweep.sh
+```
+
+### Custom Hyperparameters (Slurm)
+
+Example sweeping weight decay and scheduler across batch sizes:
+
+```bash
+sbatch \
+  --export=ALL,\
+MODELS="ltg/norbert4-small",\
+LEARNING_RATES="2e-5,5e-5",\
+BATCH_SIZES="16,32",\
+WEIGHT_DECAYS="0.0,0.01",\
+LR_SCHEDULER_TYPES="linear,cosine",\
+EVAL_STEPS=50,\
+SAVE_STEPS=50,\
+OPTIMIZER_NAME=adamw_torch,\
+EARLY_STOPPING_PATIENCE=5,\
+WANDB=1,\
+WANDB_PROJECT="euroeval-sweeps",\
+OUTPUT_DIR="sweep_runs/wd_sched_experiment" \
+  sweep_refactor/run_sweep.slurm
+```
+
+### Using Fixed Finetuning Hyperparameters
+
+To apply fixed (non-swept) finetuning hyperparameters across all trials, use the
+fixed parameter CLI flags (e.g., `--optimizer-name`, `--eval-steps`). For example:
+
+```bash
+python sweep_refactor/sweep_hyperparams.py \
+  --models "ltg/norbert4-xsmall,google/mt5-small" \
+  --learning-rates "1e-5,2e-5" \
+  --warmup-ratios "0.0,0.1" \
+  --batch-sizes "16,32" \
+  --max-steps "320,640" \
+  --weight-decays "0.0,0.01" \
+  --lr-scheduler-types "linear,cosine" \
+  --optimizer-name adamw_8bit \
+  --eval-steps 50 \
+  --early-stopping-patience 3 \
+  --language "en"
+```
+
 ## Notes
 
 - Each trial is independent; failures do not affect other trials unless `--stop-on-error`
 is set
 - The Cartesian product can grow large; e.g., 2 models × 5 LRs × 3 WRs × 2 BSs × 3
-max_steps = **180 trials**
+max_steps × 2 weight_decays × 2 schedulers = **720 trials**
+- `--weight-decays` and `--lr-scheduler-types` are **swept** (Cartesian product)
+- Other finetuning flags like `--optimizer-name` and `--eval-steps` are **fixed** across
+all trials
 - W&B enables real-time monitoring of sweep progress via dashboard
 - Output files are cumulative; re-running with the same output dir appends to JSONL
 - Task-level metrics with standard errors enable error-aware hyperparameter selection

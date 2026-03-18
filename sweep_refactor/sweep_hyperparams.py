@@ -1,9 +1,14 @@
 """Run a model-agnostic hyperparameter sweep for EuroEval finetuning benchmarks.
 
 This script supports sweeping one or multiple models over learning rate, warmup
-ratio, finetuning batch size, and max steps. Detailed benchmark records from all
-trials are consolidated in a single JSONL file, while ranked summaries are
-written to JSON and CSV.
+ratio, finetuning batch size, max steps, weight decay, and learning rate scheduler
+type. Detailed benchmark records from all trials are consolidated in a single JSONL
+file, while ranked summaries are written to JSON and CSV.
+
+Additional EuroEval finetuning hyperparameters (eval_steps, logging_steps, save_steps,
+eval_accumulation_steps, gradient_accumulation_base, early_stopping_patience,
+optimizer_name, save_total_limit, per_device_eval_batch_size) can be configured
+as fixed values that apply uniformly to all trials.
 """
 
 # ruff: noqa: I001
@@ -33,13 +38,20 @@ IGNORED_METRIC_KEYS = {
 
 @dataclass(frozen=True)
 class TrialConfig:
-    """Sweep trial configuration."""
+    """Sweep trial configuration.
+
+    Stores the core hyperparameters varied in the sweep. Additional EuroEval
+    finetuning hyperparameters (eval_steps, optimizer_name, etc.) can be
+    configured as fixed values that apply uniformly to all trials.
+    """
 
     model: str
     learning_rate: float
     warmup_ratio: float
     finetuning_batch_size: int
     max_steps: int
+    weight_decay: float
+    lr_scheduler_type: str
 
 
 @dataclass
@@ -288,7 +300,9 @@ def _build_trial_name(config: TrialConfig) -> str:
     wr = str(config.warmup_ratio).replace(".", "p")
     bs = str(config.finetuning_batch_size)
     ms = str(config.max_steps)
-    return f"model_{model}_lr_{lr}_wr_{wr}_bs_{bs}_ms_{ms}"
+    wd = str(config.weight_decay).replace(".", "p")
+    sched = config.lr_scheduler_type
+    return f"model_{model}_lr_{lr}_wr_{wr}_bs_{bs}_ms_{ms}_wd_{wd}_sched_{sched}"
 
 
 def _trial_config_dict(config: TrialConfig) -> dict[str, int | float | str]:
@@ -298,6 +312,8 @@ def _trial_config_dict(config: TrialConfig) -> dict[str, int | float | str]:
         "warmup_ratio": config.warmup_ratio,
         "finetuning_batch_size": config.finetuning_batch_size,
         "max_steps": config.max_steps,
+        "weight_decay": config.weight_decay,
+        "lr_scheduler_type": config.lr_scheduler_type,
     }
 
 
@@ -522,6 +538,72 @@ def parse_args() -> argparse.Namespace:
         help="Comma-separated maximum finetuning steps.",
     )
     parser.add_argument(
+        "--eval-steps",
+        type=int,
+        default=30,
+        help="How often to evaluate the model during training.",
+    )
+    parser.add_argument(
+        "--logging-steps",
+        type=int,
+        default=30,
+        help="How often to log training metrics.",
+    )
+    parser.add_argument(
+        "--save-steps",
+        type=int,
+        default=30,
+        help="How often to save model checkpoints.",
+    )
+    parser.add_argument(
+        "--eval-accumulation-steps",
+        type=int,
+        default=32,
+        help="Number of steps to accumulate gradients for evaluation.",
+    )
+    parser.add_argument(
+        "--gradient-accumulation-base",
+        type=int,
+        default=32,
+        help="Base value for computing gradient accumulation (actual: base / batch_size).",
+    )
+    parser.add_argument(
+        "--early-stopping-patience",
+        type=int,
+        default=5,
+        help="Number of evaluation steps with no improvement before stopping.",
+    )
+    parser.add_argument(
+        "--optimizer-name",
+        type=str,
+        default="adamw_torch",
+        help="Optimizer to use (e.g., adamw_torch, adamw_8bit, sgd).",
+    )
+    parser.add_argument(
+        "--save-total-limit",
+        type=int,
+        default=1,
+        help="Maximum number of model checkpoints to keep.",
+    )
+    parser.add_argument(
+        "--per-device-eval-batch-size",
+        type=int,
+        default=None,
+        help="Batch size for evaluation (if None, uses training batch size).",
+    )
+    parser.add_argument(
+        "--weight-decays",
+        type=str,
+        default="0.0",
+        help="Comma-separated weight decay (L2 regularization) values to sweep.",
+    )
+    parser.add_argument(
+        "--lr-scheduler-types",
+        type=str,
+        default="linear",
+        help="Comma-separated LR scheduler types to sweep (e.g., linear,cosine).",
+    )
+    parser.add_argument(
         "--language",
         type=str,
         default="no",
@@ -648,6 +730,8 @@ def main() -> None:
     warmup_ratios = _parse_float_list(args.warmup_ratios)
     batch_sizes = _parse_int_list(args.batch_sizes)
     max_steps_values = _parse_int_list(args.max_steps)
+    weight_decays = _parse_float_list(args.weight_decays)
+    lr_scheduler_types = _parse_str_list(args.lr_scheduler_types)
     tasks = [task.strip() for task in args.tasks.split(",") if task.strip()] or None
     wandb_module = _import_wandb(enable_wandb=args.wandb)
 
@@ -664,10 +748,13 @@ def main() -> None:
             warmup_ratio=warmup_ratio,
             finetuning_batch_size=batch_size,
             max_steps=max_steps,
+            weight_decay=weight_decay,
+            lr_scheduler_type=lr_scheduler_type,
         )
-        for model, learning_rate, warmup_ratio, batch_size, max_steps in (
+        for model, learning_rate, warmup_ratio, batch_size, max_steps, weight_decay, lr_scheduler_type in (
             itertools.product(
-                models, learning_rates, warmup_ratios, batch_sizes, max_steps_values
+                models, learning_rates, warmup_ratios, batch_sizes, max_steps_values,
+                weight_decays, lr_scheduler_types,
             )
         )
     ]
@@ -707,6 +794,17 @@ def main() -> None:
                 "warmup_ratio": config.warmup_ratio,
                 "finetuning_batch_size": config.finetuning_batch_size,
                 "max_steps": config.max_steps,
+                "weight_decay": config.weight_decay,
+                "lr_scheduler_type": config.lr_scheduler_type,
+                "eval_steps": args.eval_steps,
+                "logging_steps": args.logging_steps,
+                "save_steps": args.save_steps,
+                "eval_accumulation_steps": args.eval_accumulation_steps,
+                "gradient_accumulation_base": args.gradient_accumulation_base,
+                "early_stopping_patience": args.early_stopping_patience,
+                "optimizer_name": args.optimizer_name,
+                "save_total_limit": args.save_total_limit,
+                "per_device_eval_batch_size": args.per_device_eval_batch_size,
                 "language": args.language,
                 "tasks": tasks,
                 "num_iterations": args.num_iterations,
@@ -739,6 +837,17 @@ def main() -> None:
                 warmup_ratio=config.warmup_ratio,
                 finetuning_batch_size=config.finetuning_batch_size,
                 max_steps=config.max_steps,
+                eval_steps=args.eval_steps,
+                logging_steps=args.logging_steps,
+                save_steps=args.save_steps,
+                eval_accumulation_steps=args.eval_accumulation_steps,
+                gradient_accumulation_base=args.gradient_accumulation_base,
+                early_stopping_patience=args.early_stopping_patience,
+                optimizer_name=args.optimizer_name,
+                save_total_limit=args.save_total_limit,
+                per_device_eval_batch_size=args.per_device_eval_batch_size,
+                weight_decay=config.weight_decay,
+                lr_scheduler_type=config.lr_scheduler_type,
                 num_iterations=args.num_iterations,
                 progress_bar=not args.no_progress_bar,
                 save_results=False,
@@ -864,6 +973,8 @@ def main() -> None:
                         config.finetuning_batch_size
                     ),
                     "trial/max_steps": float(config.max_steps),
+                    "trial/weight_decay": config.weight_decay,
+                    "trial/lr_scheduler_type": config.lr_scheduler_type,
                 }
                 if objective_score is not None:
                     trial_payload["trial/objective_score"] = objective_score
@@ -933,6 +1044,8 @@ def main() -> None:
             "warmup_ratio": row.config.warmup_ratio,
             "finetuning_batch_size": row.config.finetuning_batch_size,
             "max_steps": row.config.max_steps,
+            "weight_decay": row.config.weight_decay,
+            "lr_scheduler_type": row.config.lr_scheduler_type,
             "objective_score": row.objective_score,
             "num_records": row.num_records,
             "error": row.error,
@@ -951,6 +1064,8 @@ def main() -> None:
                 "warmup_ratio",
                 "finetuning_batch_size",
                 "max_steps",
+                "weight_decay",
+                "lr_scheduler_type",
                 "objective_score",
                 "num_records",
                 "error",
@@ -966,6 +1081,8 @@ def main() -> None:
                     "warmup_ratio": row.config.warmup_ratio,
                     "finetuning_batch_size": row.config.finetuning_batch_size,
                     "max_steps": row.config.max_steps,
+                    "weight_decay": row.config.weight_decay,
+                    "lr_scheduler_type": row.config.lr_scheduler_type,
                     "objective_score": row.objective_score,
                     "num_records": row.num_records,
                     "error": row.error or "",
@@ -993,6 +1110,8 @@ def main() -> None:
                 "warmup_ratios": warmup_ratios,
                 "batch_sizes": batch_sizes,
                 "max_steps": max_steps_values,
+                "weight_decays": weight_decays,
+                "lr_scheduler_types": lr_scheduler_types,
                 "language": args.language,
                 "num_trials": len(ranked_rows),
             },
@@ -1053,6 +1172,16 @@ def main() -> None:
                 )
                 _wandb_set_summary(
                     summary_run,
+                    "best_weight_decay",
+                    best_summary.config.weight_decay,
+                )
+                _wandb_set_summary(
+                    summary_run,
+                    "best_lr_scheduler_type",
+                    best_summary.config.lr_scheduler_type,
+                )
+                _wandb_set_summary(
+                    summary_run,
                     "best_objective_score",
                     best_summary.objective_score,
                 )
@@ -1067,6 +1196,8 @@ def main() -> None:
                     "warmup_ratio",
                     "finetuning_batch_size",
                     "max_steps",
+                    "weight_decay",
+                    "lr_scheduler_type",
                     "objective_score",
                     "num_records",
                     "error",
@@ -1083,6 +1214,8 @@ def main() -> None:
                         row.config.warmup_ratio,
                         row.config.finetuning_batch_size,
                         row.config.max_steps,
+                        row.config.weight_decay,
+                        row.config.lr_scheduler_type,
                         row.objective_score,
                         row.num_records,
                         row.error or "",
@@ -1096,6 +1229,8 @@ def main() -> None:
                         row.config.finetuning_batch_size
                     ),
                     "sweep/max_steps": float(row.config.max_steps),
+                    "sweep/weight_decay": row.config.weight_decay,
+                    "sweep/lr_scheduler_type": row.config.lr_scheduler_type,
                     "sweep/success": 1.0 if row.error is None else 0.0,
                 }
                 if row.objective_score is not None:
