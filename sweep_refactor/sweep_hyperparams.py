@@ -232,6 +232,12 @@ def _parse_tags(raw: str) -> list[str]:
     return [tag.strip() for tag in raw.split(",") if tag.strip()]
 
 
+def _generate_sweep_group(models: list[str]) -> str:
+    timestamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d_%H%M%S")
+    slug = _sanitize_model_name(models[0])[:30]
+    return f"sweep_{slug}_{timestamp}"
+
+
 def _score_from_total_metrics(total_metrics: dict[str, Any]) -> float | None:
     values: list[float] = []
     for key, value in total_metrics.items():
@@ -517,55 +523,42 @@ def main() -> None:
     detailed_results_jsonl = output_dir / "sweep_detailed_results.jsonl"
     detailed_results_jsonl.write_text("", encoding="utf-8")
     benchmark_record_index = 0
-
-    wandb_run: object | None = _wandb_init(
-        wandb_module=wandb_module,
-        project=args.wandb_project,
-        entity=args.wandb_entity,
-        name=args.wandb_run_name,
-        group=args.wandb_group,
-        notes=args.wandb_notes,
-        tags=_parse_tags(args.wandb_tags),
-        job_type=args.wandb_job_type,
-        mode=args.wandb_mode,
-        config={
-            "models": models,
-            "learning_rates": learning_rates,
-            "warmup_ratios": warmup_ratios,
-            "batch_sizes": batch_sizes,
-            "max_steps": max_steps_values,
-            "language": args.language,
-            "tasks": tasks,
-            "num_iterations": args.num_iterations,
-            "cache_dir": args.cache_dir,
-            "output_dir": str(output_dir),
-            "trust_remote_code": args.trust_remote_code,
-            "prioritize_mask": args.prioritize_mask,
-            "force": args.force,
-            "progress_bar": not args.no_progress_bar,
-            "num_trials": len(configs),
-        },
-    )
-    if wandb_run is not None:
-        _wandb_define_metric(wandb_module, "trial_index")
-        _wandb_define_metric(
-            wandb_module, "trial/*", step_metric="trial_index"
-        )
-        _wandb_define_metric(wandb_module, "benchmark_record_index")
-        _wandb_define_metric(
-            wandb_module,
-            "benchmark/*",
-            step_metric="benchmark_record_index",
-        )
+    sweep_group = args.wandb_group or _generate_sweep_group(models)
+    if wandb_module is not None:
+        print(f"W&B logging enabled. Sweep group: {sweep_group}")
 
     print(f"Running {len(configs)} sweep trials across {len(models)} model(s).")
     print(f"Detailed trial records will be saved to: {detailed_results_jsonl}")
 
     for index, config in enumerate(configs, start=1):
         trial_name = _build_trial_name(config)
-        trial_started = dt.datetime.now(dt.UTC)
 
         print(f"[{index}/{len(configs)}] Trial {trial_name}")
+
+        trial_started = dt.datetime.now(dt.UTC)
+        wandb_run: object | None = _wandb_init(
+            wandb_module=wandb_module,
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            name=trial_name,
+            group=sweep_group,
+            notes=args.wandb_notes,
+            tags=_parse_tags(args.wandb_tags),
+            job_type=args.wandb_job_type,
+            mode=args.wandb_mode,
+            config={
+                "model": config.model,
+                "learning_rate": config.learning_rate,
+                "warmup_ratio": config.warmup_ratio,
+                "finetuning_batch_size": config.finetuning_batch_size,
+                "max_steps": config.max_steps,
+                "language": args.language,
+                "tasks": tasks,
+                "num_iterations": args.num_iterations,
+                "trust_remote_code": args.trust_remote_code,
+                "prioritize_mask": args.prioritize_mask,
+            },
+        )
 
         try:
             benchmarker = Benchmarker(
@@ -608,85 +601,53 @@ def main() -> None:
                 )
             )
 
-            if wandb_run is not None:
-                trial_log_payload: dict[str, Any] = {
-                    "trial_index": index,
-                    "trial/status": 1,
-                    "trial/model": config.model,
-                    "trial/trial_name": trial_name,
-                    "trial/learning_rate": config.learning_rate,
-                    "trial/warmup_ratio": config.warmup_ratio,
-                    "trial/finetuning_batch_size": config.finetuning_batch_size,
-                    "trial/max_steps": config.max_steps,
-                    "trial/num_records": num_records,
-                    "trial/elapsed_seconds": (
-                        trial_finished - trial_started
-                    ).total_seconds(),
-                }
-                if objective_score is not None:
-                    trial_log_payload["trial/objective_score"] = objective_score
-                _wandb_log(wandb_run, trial_log_payload)
-
-                for benchmark_result in benchmark_results:
-                    result_dict = (
-                        benchmark_result.model_dump()
-                        if hasattr(benchmark_result, "model_dump")
-                        else dict(benchmark_result)
+            for benchmark_result in benchmark_results:
+                result_dict = (
+                    benchmark_result.model_dump()
+                    if hasattr(benchmark_result, "model_dump")
+                    else dict(benchmark_result)
+                )
+                dataset = result_dict.get("dataset", "unknown")
+                task = result_dict.get("task", "unknown")
+                total_metrics = result_dict.get("results", {}).get("total", {})
+                if wandb_run is not None:
+                    if isinstance(total_metrics, dict):
+                        for key, value in total_metrics.items():
+                            if isinstance(value, int | float):
+                                _wandb_set_summary(
+                                    wandb_run,
+                                    f"{dataset}/{key}",
+                                    float(value),
+                                )
+                    _wandb_set_summary(wandb_run, f"{dataset}/task", task)
+                    _wandb_set_summary(
+                        wandb_run,
+                        f"{dataset}/num_model_parameters",
+                        result_dict.get("num_model_parameters", 0),
                     )
-                    total_metrics = result_dict.get("results", {}).get("total", {})
-                    numeric_total_metrics = (
-                        _flatten_numeric_dict("benchmark/total/", total_metrics)
-                        if isinstance(total_metrics, dict)
-                        else {}
-                    )
-
-                    benchmark_log_payload: dict[str, Any] = {
-                        "benchmark_record_index": benchmark_record_index,
-                        "benchmark/trial_index": index,
-                        "benchmark/trial_name": trial_name,
-                        "benchmark/model": result_dict.get("model", config.model),
-                        "benchmark/dataset": result_dict.get("dataset", ""),
-                        "benchmark/task": result_dict.get("task", ""),
-                        "benchmark/language_count": len(
-                            result_dict.get("languages", [])
-                            if isinstance(result_dict.get("languages"), list)
-                            else []
-                        ),
-                        "benchmark/num_model_parameters": result_dict.get(
-                            "num_model_parameters", 0
-                        ),
-                        "benchmark/max_sequence_length": result_dict.get(
-                            "max_sequence_length", 0
-                        ),
-                        "benchmark/vocabulary_size": result_dict.get(
-                            "vocabulary_size", 0
-                        ),
-                        "benchmark/generative": int(
-                            bool(result_dict.get("generative", False))
-                        ),
-                        "benchmark/few_shot": int(
-                            bool(result_dict.get("few_shot", False))
-                        ),
-                        "benchmark/validation_split": int(
-                            bool(result_dict.get("validation_split", False))
-                        ),
+                benchmark_table_rows.append(
+                    {
+                        "trial_index": index,
+                        "trial_name": trial_name,
+                        "model": result_dict.get("model", config.model),
+                        "dataset": dataset,
+                        "task": task,
+                        "languages": json.dumps(result_dict.get("languages", [])),
+                        "objective_score": objective_score,
+                        "result_json": json.dumps(result_dict),
                     }
-                    benchmark_log_payload.update(numeric_total_metrics)
-                    _wandb_log(wandb_run, benchmark_log_payload)
+                )
+                benchmark_record_index += 1
 
-                    benchmark_table_rows.append(
-                        {
-                            "trial_index": index,
-                            "trial_name": trial_name,
-                            "model": result_dict.get("model", config.model),
-                            "dataset": result_dict.get("dataset", ""),
-                            "task": result_dict.get("task", ""),
-                            "languages": json.dumps(result_dict.get("languages", [])),
-                            "objective_score": objective_score,
-                            "result_json": json.dumps(result_dict),
-                        }
+            if wandb_run is not None:
+                elapsed = (trial_finished - trial_started).total_seconds()
+                _wandb_set_summary(wandb_run, "status", "success")
+                _wandb_set_summary(wandb_run, "elapsed_seconds", elapsed)
+                _wandb_set_summary(wandb_run, "num_datasets", num_records)
+                if objective_score is not None:
+                    _wandb_set_summary(
+                        wandb_run, "objective_score", objective_score
                     )
-                    benchmark_record_index += 1
 
         except Exception as exc:  # noqa: BLE001
             error_message = str(exc)
@@ -703,27 +664,15 @@ def main() -> None:
             print(f"  Failed: {error_message}")
 
             if wandb_run is not None:
-                _wandb_log(
-                    wandb_run,
-                    {
-                        "trial_index": index,
-                        "trial/status": 0,
-                        "trial/model": config.model,
-                        "trial/trial_name": trial_name,
-                        "trial/learning_rate": config.learning_rate,
-                        "trial/warmup_ratio": config.warmup_ratio,
-                        "trial/finetuning_batch_size": config.finetuning_batch_size,
-                        "trial/max_steps": config.max_steps,
-                        "trial/num_records": 0,
-                        "trial/error": error_message,
-                        "trial/elapsed_seconds": (
-                            trial_finished - trial_started
-                        ).total_seconds(),
-                    },
-                )
+                elapsed = (trial_finished - trial_started).total_seconds()
+                _wandb_set_summary(wandb_run, "status", "failed")
+                _wandb_set_summary(wandb_run, "error", error_message)
+                _wandb_set_summary(wandb_run, "elapsed_seconds", elapsed)
 
             if args.stop_on_error:
                 break
+        finally:
+            _wandb_finish(wandb_run)
 
     ranked_rows = sorted(
         summary_rows,
@@ -787,135 +736,173 @@ def main() -> None:
     print(f"Saved summary CSV: {summary_csv}")
     print(f"Saved detailed records JSONL: {detailed_results_jsonl}")
 
-    if wandb_run is not None:
-        best = next(
-            (row for row in ranked_rows if row.objective_score is not None), None
+    if wandb_module is not None:
+        summary_run = _wandb_init(
+            wandb_module=wandb_module,
+            project=args.wandb_project,
+            entity=args.wandb_entity,
+            name="sweep-summary",
+            group=sweep_group,
+            notes=args.wandb_notes,
+            tags=_parse_tags(args.wandb_tags),
+            job_type="sweep-summary",
+            mode=args.wandb_mode,
+            config={
+                "models": models,
+                "learning_rates": learning_rates,
+                "warmup_ratios": warmup_ratios,
+                "batch_sizes": batch_sizes,
+                "max_steps": max_steps_values,
+                "language": args.language,
+                "num_trials": len(ranked_rows),
+            },
         )
-        _wandb_set_summary(wandb_run, "num_trials", len(ranked_rows))
-        _wandb_set_summary(
-            wandb_run,
-            "num_successful_trials",
-            sum(
-                1 for row in ranked_rows if row.objective_score is not None
-            ),
-        )
-        _wandb_set_summary(
-            wandb_run,
-            "num_failed_trials",
-            sum(1 for row in ranked_rows if row.objective_score is None),
-        )
-        _wandb_set_summary(
-            wandb_run,
-            "num_logged_benchmark_records",
-            benchmark_record_index,
-        )
+        if summary_run is not None:
+            best_summary = next(
+                (row for row in ranked_rows if row.objective_score is not None),
+                None,
+            )
+            _wandb_set_summary(summary_run, "sweep_group", sweep_group)
+            _wandb_set_summary(summary_run, "num_trials", len(ranked_rows))
+            _wandb_set_summary(
+                summary_run,
+                "num_successful_trials",
+                sum(1 for row in ranked_rows if row.objective_score is not None),
+            )
+            _wandb_set_summary(
+                summary_run,
+                "num_failed_trials",
+                sum(1 for row in ranked_rows if row.objective_score is None),
+            )
+            _wandb_set_summary(
+                summary_run,
+                "num_logged_benchmark_records",
+                benchmark_record_index,
+            )
 
-        if best is not None:
-            _wandb_set_summary(wandb_run, "best_trial_name", best.trial_name)
-            _wandb_set_summary(wandb_run, "best_model", best.config.model)
-            _wandb_set_summary(
-                wandb_run, "best_learning_rate", best.config.learning_rate
-            )
-            _wandb_set_summary(
-                wandb_run, "best_warmup_ratio", best.config.warmup_ratio
-            )
-            _wandb_set_summary(
-                wandb_run,
-                "best_finetuning_batch_size",
-                best.config.finetuning_batch_size,
-            )
-            _wandb_set_summary(wandb_run, "best_max_steps", best.config.max_steps)
-            _wandb_set_summary(
-                wandb_run, "best_objective_score", best.objective_score
-            )
+            if best_summary is not None:
+                _wandb_set_summary(
+                    summary_run, "best_trial_name", best_summary.trial_name
+                )
+                _wandb_set_summary(
+                    summary_run, "best_model", best_summary.config.model
+                )
+                _wandb_set_summary(
+                    summary_run,
+                    "best_learning_rate",
+                    best_summary.config.learning_rate,
+                )
+                _wandb_set_summary(
+                    summary_run,
+                    "best_warmup_ratio",
+                    best_summary.config.warmup_ratio,
+                )
+                _wandb_set_summary(
+                    summary_run,
+                    "best_finetuning_batch_size",
+                    best_summary.config.finetuning_batch_size,
+                )
+                _wandb_set_summary(
+                    summary_run,
+                    "best_max_steps",
+                    best_summary.config.max_steps,
+                )
+                _wandb_set_summary(
+                    summary_run,
+                    "best_objective_score",
+                    best_summary.objective_score,
+                )
 
-        trials_table = _wandb_new_table(
-            wandb_module,
-            columns=[
-                "rank",
-                "trial_name",
-                "model",
-                "learning_rate",
-                "warmup_ratio",
-                "finetuning_batch_size",
-                "max_steps",
-                "objective_score",
-                "num_records",
-                "error",
-            ],
-        )
-        for rank, row in enumerate(ranked_rows, start=1):
-            _wandb_table_add_row(
-                trials_table,
-                [
-                    rank,
-                    row.trial_name,
-                    row.config.model,
-                    row.config.learning_rate,
-                    row.config.warmup_ratio,
-                    row.config.finetuning_batch_size,
-                    row.config.max_steps,
-                    row.objective_score,
-                    row.num_records,
-                    row.error or "",
-                ],
-            )
-        _wandb_log(wandb_run, {"summary/trials_table": trials_table})
-
-        if benchmark_table_rows:
-            benchmarks_table = _wandb_new_table(
+            trials_table = _wandb_new_table(
                 wandb_module,
                 columns=[
-                    "trial_index",
+                    "rank",
                     "trial_name",
                     "model",
-                    "dataset",
-                    "task",
-                    "languages",
+                    "learning_rate",
+                    "warmup_ratio",
+                    "finetuning_batch_size",
+                    "max_steps",
                     "objective_score",
-                    "result_json",
+                    "num_records",
+                    "error",
                 ],
             )
-            for row in benchmark_table_rows:
+            for rank, row in enumerate(ranked_rows, start=1):
                 _wandb_table_add_row(
-                    benchmarks_table,
+                    trials_table,
                     [
-                        row["trial_index"],
-                        row["trial_name"],
-                        row["model"],
-                        row["dataset"],
-                        row["task"],
-                        row["languages"],
-                        row["objective_score"],
-                        row["result_json"],
+                        rank,
+                        row.trial_name,
+                        row.config.model,
+                        row.config.learning_rate,
+                        row.config.warmup_ratio,
+                        row.config.finetuning_batch_size,
+                        row.config.max_steps,
+                        row.objective_score,
+                        row.num_records,
+                        row.error or "",
                     ],
                 )
-            _wandb_log(wandb_run, {"summary/benchmarks_table": benchmarks_table})
+            _wandb_log(summary_run, {"summary/trials_table": trials_table})
 
-        run_id = str(getattr(wandb_run, "id", "unknown"))
-        artifact_name = f"euroeval-sweep-results-{run_id}"
-        artifact = _wandb_new_artifact(
-            wandb_module,
-            name=artifact_name,
-            artifact_type="sweep-results",
-        )
-        _wandb_artifact_add_file(
-            artifact,
-            local_path=str(summary_json),
-            name="sweep_summary.json",
-        )
-        _wandb_artifact_add_file(
-            artifact,
-            local_path=str(summary_csv),
-            name="sweep_summary.csv",
-        )
-        _wandb_artifact_add_file(
-            artifact,
-            local_path=str(detailed_results_jsonl),
-            name="sweep_detailed_results.jsonl",
-        )
-        _wandb_log_artifact(wandb_run, artifact)
-        _wandb_finish(wandb_run)
+            if benchmark_table_rows:
+                benchmarks_table = _wandb_new_table(
+                    wandb_module,
+                    columns=[
+                        "trial_index",
+                        "trial_name",
+                        "model",
+                        "dataset",
+                        "task",
+                        "languages",
+                        "objective_score",
+                        "result_json",
+                    ],
+                )
+                for row in benchmark_table_rows:
+                    _wandb_table_add_row(
+                        benchmarks_table,
+                        [
+                            row["trial_index"],
+                            row["trial_name"],
+                            row["model"],
+                            row["dataset"],
+                            row["task"],
+                            row["languages"],
+                            row["objective_score"],
+                            row["result_json"],
+                        ],
+                    )
+                _wandb_log(
+                    summary_run,
+                    {"summary/benchmarks_table": benchmarks_table},
+                )
+
+            run_id = str(getattr(summary_run, "id", "unknown"))
+            artifact_name = f"euroeval-sweep-{sweep_group}-{run_id}"
+            artifact = _wandb_new_artifact(
+                wandb_module,
+                name=artifact_name,
+                artifact_type="sweep-results",
+            )
+            _wandb_artifact_add_file(
+                artifact,
+                local_path=str(summary_json),
+                name="sweep_summary.json",
+            )
+            _wandb_artifact_add_file(
+                artifact,
+                local_path=str(summary_csv),
+                name="sweep_summary.csv",
+            )
+            _wandb_artifact_add_file(
+                artifact,
+                local_path=str(detailed_results_jsonl),
+                name="sweep_detailed_results.jsonl",
+            )
+            _wandb_log_artifact(summary_run, artifact)
+            _wandb_finish(summary_run)
 
     best = next((row for row in ranked_rows if row.objective_score is not None), None)
     if best is None:
