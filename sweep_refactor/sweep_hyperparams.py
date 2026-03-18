@@ -715,6 +715,22 @@ def main() -> None:
             },
         )
 
+        if wandb_run is not None:
+            _wandb_define_metric(wandb_module, "trial/step")
+            _wandb_define_metric(
+                wandb_module, "trial/*", step_metric="trial/step"
+            )
+            _wandb_define_metric(wandb_module, "benchmark/record_index")
+            _wandb_define_metric(
+                wandb_module,
+                "benchmark/*",
+                step_metric="benchmark/record_index",
+            )
+            _wandb_define_metric(wandb_module, "task/step")
+            _wandb_define_metric(
+                wandb_module, "task/*", step_metric="task/step"
+            )
+
         try:
             benchmarker = Benchmarker(
                 task=tasks,
@@ -762,7 +778,9 @@ def main() -> None:
             total_benchmark_score = _compute_total_benchmark_score(results_by_task)
 
             # Log task-level metrics and individual benchmark records
-            for benchmark_result in benchmark_results:
+            for record_index, benchmark_result in enumerate(
+                benchmark_results, start=1
+            ):
                 result_dict = (
                     benchmark_result.model_dump()
                     if hasattr(benchmark_result, "model_dump")
@@ -772,14 +790,26 @@ def main() -> None:
                 task = result_dict.get("task", "unknown")
                 total_metrics = result_dict.get("results", {}).get("total", {})
                 if wandb_run is not None:
+                    benchmark_payload: dict[str, Any] = {
+                        "benchmark/record_index": record_index,
+                        "benchmark/dataset": dataset,
+                        "benchmark/task": task,
+                        "benchmark/num_model_parameters": float(
+                            result_dict.get("num_model_parameters", 0)
+                        ),
+                    }
                     if isinstance(total_metrics, dict):
                         for key, value in total_metrics.items():
                             if isinstance(value, int | float):
+                                benchmark_payload[
+                                    f"benchmark/{task}/{key}"
+                                ] = float(value)
                                 _wandb_set_summary(
                                     wandb_run,
                                     f"{dataset}/{key}",
                                     float(value),
                                 )
+                    _wandb_log(wandb_run, benchmark_payload)
                     _wandb_set_summary(wandb_run, f"{dataset}/task", task)
                     _wandb_set_summary(
                         wandb_run,
@@ -802,14 +832,19 @@ def main() -> None:
 
             # Log task-level statistics
             if wandb_run is not None:
+                task_payload: dict[str, Any] = {"task/step": 1}
                 for task, stats in task_stats.items():
                     for metric_name, value in stats.items():
                         if value is not None:
+                            task_payload[
+                                f"task/{task}/{metric_name}"
+                            ] = float(value)
                             _wandb_set_summary(
                                 wandb_run,
                                 f"task/{task}/{metric_name}",
                                 float(value),
                             )
+                _wandb_log(wandb_run, task_payload)
                 # Log total benchmark score
                 if total_benchmark_score is not None:
                     _wandb_set_summary(
@@ -818,6 +853,25 @@ def main() -> None:
 
             if wandb_run is not None:
                 elapsed = (trial_finished - trial_started).total_seconds()
+                trial_payload: dict[str, Any] = {
+                    "trial/step": 1,
+                    "trial/status_success": 1.0,
+                    "trial/elapsed_seconds": elapsed,
+                    "trial/num_datasets": float(num_records),
+                    "trial/learning_rate": config.learning_rate,
+                    "trial/warmup_ratio": config.warmup_ratio,
+                    "trial/finetuning_batch_size": float(
+                        config.finetuning_batch_size
+                    ),
+                    "trial/max_steps": float(config.max_steps),
+                }
+                if objective_score is not None:
+                    trial_payload["trial/objective_score"] = objective_score
+                if total_benchmark_score is not None:
+                    trial_payload[
+                        "trial/total_benchmark_score"
+                    ] = total_benchmark_score
+                _wandb_log(wandb_run, trial_payload)
                 _wandb_set_summary(wandb_run, "status", "success")
                 _wandb_set_summary(wandb_run, "elapsed_seconds", elapsed)
                 _wandb_set_summary(wandb_run, "num_datasets", num_records)
@@ -842,6 +896,15 @@ def main() -> None:
 
             if wandb_run is not None:
                 elapsed = (trial_finished - trial_started).total_seconds()
+                _wandb_log(
+                    wandb_run,
+                    {
+                        "trial/step": 1,
+                        "trial/status_success": 0.0,
+                        "trial/elapsed_seconds": elapsed,
+                        "trial/error": error_message,
+                    },
+                )
                 _wandb_set_summary(wandb_run, "status", "failed")
                 _wandb_set_summary(wandb_run, "error", error_message)
                 _wandb_set_summary(wandb_run, "elapsed_seconds", elapsed)
@@ -935,6 +998,10 @@ def main() -> None:
             },
         )
         if summary_run is not None:
+            _wandb_define_metric(wandb_module, "sweep/rank")
+            _wandb_define_metric(
+                wandb_module, "sweep/*", step_metric="sweep/rank"
+            )
             best_summary = next(
                 (row for row in ranked_rows if row.objective_score is not None),
                 None,
@@ -1021,6 +1088,19 @@ def main() -> None:
                         row.error or "",
                     ],
                 )
+                payload: dict[str, Any] = {
+                    "sweep/rank": rank,
+                    "sweep/learning_rate": row.config.learning_rate,
+                    "sweep/warmup_ratio": row.config.warmup_ratio,
+                    "sweep/finetuning_batch_size": float(
+                        row.config.finetuning_batch_size
+                    ),
+                    "sweep/max_steps": float(row.config.max_steps),
+                    "sweep/success": 1.0 if row.error is None else 0.0,
+                }
+                if row.objective_score is not None:
+                    payload["sweep/objective_score"] = row.objective_score
+                _wandb_log(summary_run, payload)
             _wandb_log(summary_run, {"summary/trials_table": trials_table})
 
             if benchmark_table_rows:
