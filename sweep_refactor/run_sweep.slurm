@@ -12,7 +12,9 @@ set -euo pipefail
 
 mkdir -p slurm_logs
 
-# Set/override these with: sbatch --export=ALL,MODELS=org/model-a,org/model-b ...
+# Set/override these with: sbatch --export=ALL,MODELS=org/model-a|org/model-b ...
+# Note: sbatch uses commas to separate --export entries, so prefer '|' (or ';')
+# inside list-valued variables.
 export MODELS="${MODELS:-ltg/norbert4-xsmall}"
 export LEARNING_RATES="${LEARNING_RATES:-5e-6,1e-5,2e-5,5e-5,8e-5,1e-4,2e-4,5e-4}"
 export WARMUP_RATIOS="${WARMUP_RATIOS:-0.0,0.01,0.05,0.1}"

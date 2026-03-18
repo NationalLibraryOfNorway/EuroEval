@@ -19,6 +19,7 @@ import datetime as dt
 import importlib
 import itertools
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -66,21 +67,24 @@ class TrialResult:
 
 
 def _parse_float_list(raw: str) -> list[float]:
-    values = [value.strip() for value in raw.split(",") if value.strip()]
+    cleaned = raw.replace("\\,", ",")
+    values = [value.strip() for value in re.split(r"[,;|]", cleaned) if value.strip()]
     if not values:
         raise ValueError("Expected at least one float value.")
     return [float(value) for value in values]
 
 
 def _parse_int_list(raw: str) -> list[int]:
-    values = [value.strip() for value in raw.split(",") if value.strip()]
+    cleaned = raw.replace("\\,", ",")
+    values = [value.strip() for value in re.split(r"[,;|]", cleaned) if value.strip()]
     if not values:
         raise ValueError("Expected at least one integer value.")
     return [int(value) for value in values]
 
 
 def _parse_str_list(raw: str) -> list[str]:
-    values = [value.strip() for value in raw.split(",") if value.strip()]
+    cleaned = raw.replace("\\,", ",")
+    values = [value.strip() for value in re.split(r"[,;|]", cleaned) if value.strip()]
     if not values:
         raise ValueError("Expected at least one model value.")
     return values
@@ -511,31 +515,31 @@ def parse_args() -> argparse.Namespace:
         "--models",
         type=str,
         default="ltg/norbert4-xsmall",
-        help="Comma-separated model IDs to benchmark.",
+        help="Model IDs to benchmark, separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--learning-rates",
         type=str,
         default="5e-6,1e-5,2e-5,5e-5,8e-5,1e-4,2e-4,5e-4",
-        help="Comma-separated learning rates.",
+        help="Learning rates separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--warmup-ratios",
         type=str,
         default="0.0,0.01,0.05,0.1",
-        help="Comma-separated warmup ratios.",
+        help="Warmup ratios separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--batch-sizes",
         type=str,
         default="32",
-        help="Comma-separated finetuning batch sizes.",
+        help="Finetuning batch sizes separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--max-steps",
         type=str,
         default="160,320,640,1280",
-        help="Comma-separated maximum finetuning steps.",
+        help="Maximum finetuning steps separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--eval-steps",
@@ -595,13 +599,13 @@ def parse_args() -> argparse.Namespace:
         "--weight-decays",
         type=str,
         default="0.0",
-        help="Comma-separated weight decay (L2 regularization) values to sweep.",
+        help="Weight decay values to sweep, separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--lr-scheduler-types",
         type=str,
         default="linear",
-        help="Comma-separated LR scheduler types to sweep (e.g., linear,cosine).",
+        help="LR scheduler types to sweep, separated by ',', ';' or '|'.",
     )
     parser.add_argument(
         "--language",

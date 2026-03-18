@@ -210,6 +210,9 @@ bash sweep_refactor/run_sweep.sh
 
 ### On Slurm Clusters
 
+Important: `sbatch --export` uses commas to separate variables, so list-valued
+arguments should use `|` (or `;`) as separators instead of commas.
+
 Submit with defaults:
 
 ```bash
@@ -220,7 +223,7 @@ Submit with custom parameters and W&B:
 
 ```bash
 sbatch --export=ALL,\
-MODELS=ltg/norbert4-xsmall,\
+MODELS=ltg/norbert4-xsmall|google/mt5-small,\
 WANDB=1,\
 WANDB_PROJECT=euroeval-sweeps,\
 WANDB_ENTITY=your-team-or-user,\
@@ -356,8 +359,8 @@ bash sweep_refactor/run_sweep.sh
 ```bash
 sbatch \
   --export=ALL,\
-MODELS="ltg/norbert4-small",\
-LEARNING_RATES="1e-5,5e-5,1e-4",\
+MODELS="ltg/norbert4-small|google/mt5-small",\
+LEARNING_RATES="1e-5|5e-5|1e-4",\
 WANDB=1,\
 WANDB_PROJECT="euroeval-sweeps",\
 WANDB_GROUP="large-batch-experiment",\
@@ -393,10 +396,10 @@ Example sweeping weight decay and scheduler across batch sizes:
 sbatch \
   --export=ALL,\
 MODELS="ltg/norbert4-small",\
-LEARNING_RATES="2e-5,5e-5",\
-BATCH_SIZES="16,32",\
-WEIGHT_DECAYS="0.0,0.01",\
-LR_SCHEDULER_TYPES="linear,cosine",\
+LEARNING_RATES="2e-5|5e-5",\
+BATCH_SIZES="16|32",\
+WEIGHT_DECAYS="0.0|0.01",\
+LR_SCHEDULER_TYPES="linear|cosine",\
 EVAL_STEPS=50,\
 SAVE_STEPS=50,\
 OPTIMIZER_NAME=adamw_torch,\
