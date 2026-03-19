@@ -421,6 +421,17 @@ class Benchmarker:
         learning_rate: float | None = None,
         warmup_ratio: float | None = None,
         max_steps: int | None = None,
+        eval_steps: int | None = None,
+        logging_steps: int | None = None,
+        save_steps: int | None = None,
+        eval_accumulation_steps: int | None = None,
+        gradient_accumulation_base: int | None = None,
+        early_stopping_patience: int | None = None,
+        optimizer_name: str | None = None,
+        save_total_limit: int | None = None,
+        per_device_eval_batch_size: int | None = None,
+        weight_decay: float | None = None,
+        lr_scheduler_type: str | None = None,
         raise_errors: bool | None = None,
         cache_dir: str | None = None,
         api_key: str | None = None,
@@ -493,6 +504,39 @@ class Benchmarker:
             max_steps:
                 The max steps to finetune for. Defaults to the value specified when
                 initialising the benchmarker.
+            eval_steps:
+                The number of steps between evaluations. Defaults to the value specified
+                when initialising the benchmarker.
+            logging_steps:
+                The number of steps between logging. Defaults to the value specified
+                when initialising the benchmarker.
+            save_steps:
+                The number of steps between saving checkpoints. Defaults to the value
+                specified when initialising the benchmarker.
+            eval_accumulation_steps:
+                The number of steps to accumulate gradients for evaluation. Defaults to
+                the value specified when initialising the benchmarker.
+            gradient_accumulation_base:
+                The base number of steps to accumulate gradients. Defaults to the value
+                specified when initialising the benchmarker.
+            early_stopping_patience:
+                The number of steps to wait for early stopping. Defaults to the value
+                specified when initialising the benchmarker.
+            optimizer_name:
+                The name of the optimizer to use. Defaults to the value specified when
+                initialising the benchmarker.
+            save_total_limit:
+                The maximum number of checkpoints to save. Defaults to the value
+                specified when initialising the benchmarker.
+            per_device_eval_batch_size:
+                The batch size per device for evaluation. Defaults to the value
+                specified when initialising the benchmarker.
+            weight_decay:
+                The weight decay to use for finetuning. Defaults to the value specified
+                when initialising the benchmarker.
+            lr_scheduler_type:
+                The type of learning rate scheduler to use. Defaults to the value
+                specified when initialising the benchmarker.
             raise_errors:
                 Whether to raise errors instead of skipping the model evaluation.
             cache_dir:
@@ -671,6 +715,61 @@ class Benchmarker:
                 max_steps
                 if max_steps is not None
                 else self.benchmark_config_default_params.max_steps
+            ),
+            eval_steps=(
+                eval_steps
+                if eval_steps is not None
+                else self.benchmark_config_default_params.eval_steps
+            ),
+            logging_steps=(
+                logging_steps
+                if logging_steps is not None
+                else self.benchmark_config_default_params.logging_steps
+            ),
+            save_steps=(
+                save_steps
+                if save_steps is not None
+                else self.benchmark_config_default_params.save_steps
+            ),
+            eval_accumulation_steps=(
+                eval_accumulation_steps
+                if eval_accumulation_steps is not None
+                else self.benchmark_config_default_params.eval_accumulation_steps
+            ),
+            gradient_accumulation_base=(
+                gradient_accumulation_base
+                if gradient_accumulation_base is not None
+                else self.benchmark_config_default_params.gradient_accumulation_base
+            ),
+            early_stopping_patience=(
+                early_stopping_patience
+                if early_stopping_patience is not None
+                else self.benchmark_config_default_params.early_stopping_patience
+            ),
+            optimizer_name=(
+                optimizer_name
+                if optimizer_name is not None
+                else self.benchmark_config_default_params.optimizer_name
+            ),
+            save_total_limit=(
+                save_total_limit
+                if save_total_limit is not None
+                else self.benchmark_config_default_params.save_total_limit
+            ),
+            per_device_eval_batch_size=(
+                per_device_eval_batch_size
+                if per_device_eval_batch_size is not None
+                else self.benchmark_config_default_params.per_device_eval_batch_size
+            ),
+            weight_decay=(
+                weight_decay
+                if weight_decay is not None
+                else self.benchmark_config_default_params.weight_decay
+            ),
+            lr_scheduler_type=(
+                lr_scheduler_type
+                if lr_scheduler_type is not None
+                else self.benchmark_config_default_params.lr_scheduler_type
             ),
             raise_errors=(
                 raise_errors
