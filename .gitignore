@@ -131,3 +131,10 @@ euroeval_config.py
 
 # Local debug scripts
 debug*.py
+
+slurm_logs/
+logs/
+plots/
+sweep_test/
+sweep_runs/
+venv.sqsh

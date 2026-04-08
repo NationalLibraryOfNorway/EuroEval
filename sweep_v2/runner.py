@@ -10,15 +10,15 @@ from typing import Any
 
 from euroeval import Benchmarker
 
-from .config import TrialConfig, TrialResult
-from .metrics import (
+from config import TrialConfig, TrialResult
+from metrics import (
     aggregate_by_task,
     aggregate_objective,
     compute_task_statistics,
     compute_total_benchmark_score,
 )
-from .output import append_trial_results, write_summary_csv, write_summary_json
-from .utils import build_trial_name, generate_sweep_group, parse_tags
+from output import append_trial_results, write_summary_csv, write_summary_json
+from utils import build_trial_name, generate_sweep_group, parse_tags
 
 
 def import_wandb(enable_wandb: bool) -> object | None:

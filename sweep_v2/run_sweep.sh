@@ -43,7 +43,7 @@ PRIORITIZE_MASK="${PRIORITIZE_MASK:-1}"
 # W&B configuration
 WANDB="${WANDB:-0}"
 WANDB_PROJECT="${WANDB_PROJECT:-euroeval-sweeps}"
-WANDB_ENTITY="${WANDB_ENTITY:-}"
+WANDB_ENTITY="${WANDB_ENTITY:-nbailab}"
 WANDB_RUN_NAME="${WANDB_RUN_NAME:-}"
 WANDB_GROUP="${WANDB_GROUP:-}"
 WANDB_TAGS="${WANDB_TAGS:-euroeval,sweep}"
@@ -56,12 +56,12 @@ USE_WANDB_SWEEP="${USE_WANDB_SWEEP:-1}"
 MANUAL_ONLY="${MANUAL_ONLY:-0}"
 
 # === Setup ===
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$REPO_ROOT"
+# REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# cd "$REPO_ROOT"
 
 # === Build command ===
 CMD=(
-    python -m sweep_v2.sweep_hyperparams
+    python  sweep_v2/sweep_hyperparams.py
     --models "$MODELS"
     --learning-rates "$LEARNING_RATES"
     --warmup-ratios "$WARMUP_RATIOS"

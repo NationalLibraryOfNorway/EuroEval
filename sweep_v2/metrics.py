@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from .utils import score_from_metrics
+from utils import score_from_metrics
 
 
 def aggregate_by_task(benchmark_results: list[Any]) -> dict[str, list[dict[str, Any]]]:

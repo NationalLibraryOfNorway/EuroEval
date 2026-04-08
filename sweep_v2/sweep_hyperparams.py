@@ -14,9 +14,9 @@ Usage:
     python sweep_hyperparams.py --wandb --manual-only ...
 """
 
-from .cli import parse_args
-from .runner import run_sweep
-from .utils import parse_float_list, parse_int_list, parse_str_list
+from cli import parse_args
+from runner import run_sweep
+from utils import parse_float_list, parse_int_list, parse_str_list
 
 
 def main() -> None:

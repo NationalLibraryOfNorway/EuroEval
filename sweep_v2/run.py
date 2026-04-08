@@ -150,7 +150,7 @@ def main() -> None:
         lr_scheduler_type=args.lr_scheduler_type,
         num_iterations=args.num_iterations,
         progress_bar=not args.no_progress_bar,
-        save_results=False,
+        save_results=True,
         trust_remote_code=args.trust_remote_code,
         cache_dir=args.cache_dir,
         force=args.force,
